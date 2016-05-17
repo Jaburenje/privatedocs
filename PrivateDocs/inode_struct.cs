@@ -10,12 +10,18 @@ namespace PrivateDocs
     class inode_struct
     {
         public int Number { get; set;} //4 //номер inode
-        public ushort FileType { get; set; } //2 тип файла(папка или директория)
+        public ushort FileType { get; set; } //2 тип файла(папка(10) или файл(20) 
         public int FileSize { get; set; } //4 размер в байтах
 
         public uint[] BlockPointer { get; set; } //4*15=60 умножение на 15 т.е. 15 полей указатели на блоки с данными
         //70 
         private byte[] filling;    //дозаполнение до полноценного субблока
+        public inode_struct()
+        {
+            Number = -1;
+            BlockPointer = new uint[Constants.INODE_BLOCKS];
+            filling = new byte[Constants.INODE_SIZE - 70];
+        }
         public inode_struct(int inode_index)
         {
             Number = inode_index;
@@ -94,8 +100,9 @@ namespace PrivateDocs
             return result;
         }
 
-        public void Set(ushort FileType, int FileSize,uint[] BlockPointer)
+        public void Set(int Number,ushort FileType, int FileSize,uint[] BlockPointer)
         {
+            this.Number = Number;
             this.FileType = FileType;
             this.FileSize = FileSize;
             this.BlockPointer = BlockPointer;

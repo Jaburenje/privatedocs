@@ -9,7 +9,7 @@ namespace PrivateDocs
     public static class Constants
     {
         public static readonly UInt16 MAX_NAME_LENGTH = 118;														 // 2
-        public static readonly UInt16 DR_SIZE = 128;														         // 2
+        public static readonly UInt16 CAT_SIZE = 128;														         // 2
         public static readonly UInt16 INODE_SIZE = 128;														         // 2
         public static readonly UInt16 INODE_BLOCKS = 15;                                                             // 2
         public static readonly UInt16 BIT_IN_BYTE_COUNT = 8;														 // 2

@@ -20,6 +20,7 @@ namespace PrivateDocs
         private void button1_Click(object sender, EventArgs e)
         {
             Test test = new Test(Convert.ToInt32(textBox1.Text)*1024*1024,@"C:\111");
+            
             test.WritePrimaryBlock(test.Size);
             
         }
@@ -27,6 +28,7 @@ namespace PrivateDocs
         private void button2_Click(object sender, EventArgs e)
         {
             Test test = new Test(1, textBox2.Text);
+            
             test.ReadContainer(test.Path);
         }
     }

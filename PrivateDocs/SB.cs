@@ -232,7 +232,7 @@ namespace PrivateDocs
             Buffer.BlockCopy(sb_inodes_map_index, 0, result, offset, sb_inodes_map_index.Length);
             offset += sb_inodes_map_index.Length;
 
-            byte[] sb_first_data_block = BitConverter.GetBytes(this.sb_inodes_map_index);
+            byte[] sb_first_data_block = BitConverter.GetBytes(this.sb_first_data_block);
             Buffer.BlockCopy(sb_first_data_block, 0, result, offset, sb_first_data_block.Length);
             offset += sb_first_data_block.Length;
 

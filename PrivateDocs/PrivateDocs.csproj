@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bitmap_Blocks.cs" />
+    <Compile Include="cat.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Controller.cs" />
     <Compile Include="FileSystemIO.cs" />

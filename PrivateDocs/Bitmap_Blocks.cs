@@ -180,18 +180,22 @@ namespace PrivateDocs
         /// <returns></returns>
         public List<int> FreeBlocksIndex(int count)
         {
-            List<int> freeBlocks = new List<int>();
+            List<int> result = new List<int>();
+            int tmp = 0;
             for (var i = 0; i < indexMap.Length; i++)
             {
                 for (var j = 0; j < Constants.BIT_IN_BYTE_COUNT; j++)
                 {
                     if (!GetBit(indexMap[i], j))
                     {
-                        freeBlocks.Add(Constants.BIT_IN_BYTE_COUNT * i + j);
+                        result.Add(Constants.BIT_IN_BYTE_COUNT * i + j);
+                        tmp++;
+                        if (tmp >= count)
+                            return result;
                     }
                 }
             }
-            return freeBlocks;
+            return null;
         }
 
         public int GetFreeBlock()

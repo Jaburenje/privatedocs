@@ -16,7 +16,7 @@ namespace PrivateDocs
 
         public Test(int Size, string Path)
         {
-            FileSystem = new Controller();
+            FileSystem = new Controller(Path);
             this.Size = Size;
             this.Path = Path;
             Password = new byte[Constants.MAX_PASSWORD_LENGTH];
@@ -32,7 +32,7 @@ namespace PrivateDocs
         {
 
             byte[] tmp = FileSystemIO.ReadFile(Path,88);
-            FileSystem.ReadServiceInfo(tmp,Path);
+            FileSystem.ReadServiceInfo(tmp);
 
         }
     }
