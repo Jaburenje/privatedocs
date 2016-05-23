@@ -32,7 +32,7 @@ namespace PrivateDocs
 
         public int GetSize()
         {
-            return Marshal.SizeOf(Inode_num) + Marshal.SizeOf(Size) + Name.Length;
+            return Marshal.SizeOf(Inode_num) + Marshal.SizeOf(Size)+ Marshal.SizeOf(Type) + Name.Length;
         }
 
         public byte[] Get()
@@ -76,7 +76,7 @@ namespace PrivateDocs
             byte[] type = new byte[Marshal.SizeOf(this.Type)];
             Buffer.BlockCopy(value, offset, type, 0, type.Length);
             this.Type = BitConverter.ToUInt16(type, 0);
-            offset += size.Length;
+            offset += type.Length;
 
             Name = new byte[Constants.MAX_NAME_LENGTH];
             Buffer.BlockCopy(value, offset, this.Name, 0, Name.Length);

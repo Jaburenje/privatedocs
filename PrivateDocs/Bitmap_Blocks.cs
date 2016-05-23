@@ -120,7 +120,7 @@ namespace PrivateDocs
             var locker = new object();
             var result=0;
             Parallel.ForEach(Partitioner.Create(0, indexMap.Length), (range, state) =>
-                {
+            {
                     var tmp = 0;
                     for (var i = range.Item1; i < range.Item2; i++)
                         for (var j = 0; j < Constants.BIT_IN_BYTE_COUNT; j++)
@@ -134,6 +134,9 @@ namespace PrivateDocs
                 });
             return result;
         }
+
+      
+
 
         public int CountTotalBlocks()
         {

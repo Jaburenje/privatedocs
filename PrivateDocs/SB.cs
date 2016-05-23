@@ -27,24 +27,7 @@ namespace PrivateDocs
         public long sb_last_check { get; set; }//время последней проверки фс //8
         public byte[] Password { get; set; } /* Пароль */ //16
         //88
-        //public Int32 BlocksCount { get; set; } /* Число блоков */										    // 4
-        //public Int32 FreeBlocksCount { get; set; } /* Счетчик числа свободных блоков */				        // 4
-        //public Int32 BlocksMapIndex { get; set; } /* Номер последнего блока фс с битовой картой блоков */	// 4
-        //public Int32 InodesCount { get; set; } /* Число индексных дескрипторов */						    // 4
-        //public Int32 FreeInodesCount { get; set; } /* Счетчик числа свободных индексных дескрипторов*/	    // 4
-        //public Int32 InodesMapIndex { get; set; } /* Номер последнего блока фс с битовой картой inodes */	// 4
-        //public Int32 FirstDataBlock { get; set; } /* Первый блок, содержащий данные */					    // 4
-        //public Int32 BlockSize { get; set; } /* Размер блока */										        // 4
-        //public Int64 MountTime { get; set; } /* Время последнего монтирования фс */						    // 8
-        //public Int64 WriteTime { get; set; } /* Время последней записи в фс */							    // 8
-        //public UInt16 MountCount { get; set; } /* Счетчик числа монтирований фс */						    // 2
-        //public UInt16 MaxMountCount { get; set; } /* Максимальное число монтирований фс */				    // 2
-        //public UInt16 State { get; set; } /* Статус фс */							                        // 2
-        //public UInt16 Errors { get; set; } /* Ошибки фс */							                        // 2
-        //public Int64 LastCheck { get; set; } /* Время последней проверки фс */							    // 8
-        //public Int64 CheckInterval { get; set; } /* Максимальный период времени между проверками фс */      // 8
-        // 16
-        // 88
+      
         /// <summary>
         /// Инициализация суперблока
         /// </summary>

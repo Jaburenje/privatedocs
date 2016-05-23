@@ -10,14 +10,21 @@ namespace PrivateDocs
 {
     class FileSystemIO
     {
+        public static byte[] ReadFile(string path)
+        {
+           byte[] data =  File.ReadAllBytes(path);
+           return data;
+        }
+
         public static void WriteFile(string path,byte[] data,int buffer,int offset)
         {
             try
             {
                 FileStream FStream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite, bufferSize: buffer);
                 FStream.Seek(offset, SeekOrigin.Begin);
-                FStream.SetLength(data.LongLength);
-                FStream.Write(data, 0, data.Length);
+                //FStream.SetLength(data.LongLength);
+                FStream.Write(data, 0, data.Length);//0
+                FStream.Close();
             }
             catch (Exception ex)
             {
@@ -44,6 +51,7 @@ namespace PrivateDocs
                         list.AddRange(buf);
                     }
                     byte[] result = list.ToArray<byte>();
+                    ReadFStream.Close();
                     return result;
                 }
                 catch (Exception ex)
@@ -74,6 +82,7 @@ namespace PrivateDocs
                         list.AddRange(buf);
                     }
                     byte[] result = list.ToArray<byte>();
+                    ReadFStream.Close();
                     return result;
                 }
                 catch (Exception ex)
@@ -83,8 +92,5 @@ namespace PrivateDocs
             }
             return null;
         }
-
-      
-
     }
 }

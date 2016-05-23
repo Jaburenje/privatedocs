@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -56,9 +57,11 @@ namespace PrivateDocs
             this.Inode_table = new inode_struct[InodeBitmap.TotalBlocks];
             for (var i = 0; i < InodeBitmap.TotalBlocks;i++ )
             {
-                byte[] tmp = new byte[Marshal.SizeOf(Inode_table[0])];
+                byte[] tmp = new byte[Constants.INODE_SIZE];
                 Buffer.BlockCopy(ITable, offset, tmp, 0, tmp.Length);
                 offset += tmp.Length;
+                this.Inode_table[i] = new inode_struct();
+
                 this.Inode_table[i].Set(tmp);
             }
 
@@ -164,10 +167,14 @@ namespace PrivateDocs
             Inode = CreateRootDirectory(Inodes[0]);
             Inodes[0] = Inode;
             cat[] catRecords = new cat[Constants.BLOCK_SIZE / Constants.INODE_SIZE];
+            for (int i=0;i<catRecords.Length;i++)
+            {
+                catRecords[i] = new cat();
+            }
             byte[] byteroot = new byte[Constants.BLOCK_SIZE];
+            var offset = 0;
             foreach (cat c in catRecords)
             {
-                var offset = 0;
                 byte[] block = c.Get();
                 Buffer.BlockCopy(block, 0, byteroot, offset, block.Length);
                 offset += block.Length;
@@ -279,7 +286,24 @@ namespace PrivateDocs
             List<cat> result = new List<cat>();
             int offset=0;
             byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE,block*Constants.BLOCK_SIZE,Constants.BLOCK_SIZE);
-            for (var i=0;i<Marshal.SizeOf(data)/Constants.BLOCK_SIZE;i++)
+            for (var i=0;i<data.Length/Constants.CAT_SIZE;i++)
+            {
+                byte[] part = new byte[Constants.CAT_SIZE];
+                Buffer.BlockCopy(data, offset, part, 0, part.Length);
+                offset += part.Length;
+                cat tmp = new cat();
+                tmp.Set(part);
+                result.Add(tmp);
+            }
+            return result;
+        }
+
+        public List<cat> ReadCatRecords(uint block)
+        {
+            List<cat> result = new List<cat>();
+            int offset = 0;
+            byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)block * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
+            for (var i = 0; i < data.Length / Constants.CAT_SIZE; i++)
             {
                 byte[] part = new byte[Constants.CAT_SIZE];
                 Buffer.BlockCopy(data, offset, part, 0, part.Length);
@@ -299,68 +323,334 @@ namespace PrivateDocs
             FileSystemIO.WriteFile(OpenPath, data, Constants.CAT_SIZE, block * Constants.BLOCK_SIZE);
         }
 
-        public cat AddFile(byte[] name,string Path,string PathtoFile)
+        public void ReadFileFromFS(string PathToWrite,cat record)
         {
-            byte[] data = FileSystemIO.ReadFile(PathtoFile,Constants.BLOCK_SIZE);//читаем полностью файл который будем писать
-            var size=Marshal.SizeOf(data);
-            var SizeinBlocks = (size / Constants.BLOCK_SIZE + (size % Constants.BLOCK_SIZE > 0 ? 1 : 0));
-            Debug.Assert(SuperBlock.sb_free_blocks_count>SizeinBlocks);
-            Debug.Assert(SuperBlock.sb_free_inodes_count>SizeinBlocks);
-            var count = 0;
-            if (SizeinBlocks > 12) 
-                count++;
-            if (SizeinBlocks>1024)
+            string name = Encoding.Unicode.GetString(record.Name);
+            name = name.Remove(name.IndexOf("\0"), name.Length - name.IndexOf("\0"));
+            PathToWrite += name;
+            int filesize = record.Size;
+            int SizeinBlocks = (filesize / Constants.BLOCK_SIZE + (filesize % Constants.BLOCK_SIZE > 0 ? 1 : 0));
+            int LastBlockSize = (filesize % Constants.BLOCK_SIZE);
+            int offset=0;
+            int currentblock = 0;
+            //read first 12 pointers
+            for (var i = 0; i < 12;i++)
             {
-                count++;
-                count += ((SizeinBlocks - 1024) / 1000 + (SizeinBlocks - 1024) % 1000 > 0 ? 1 : 0);
-            }
-            List<int> blocks = new List<int>();
-            List<int> Iblocks = new List<int>();
-            if ((Blocks_Bitmap.FreeBlocks>=SizeinBlocks+count)&&(InodeBitmap.FreeBlocks>0))
-            {
-                var freeblock = InodeBitmap.GetFreeBlock();
-                blocks = Blocks_Bitmap.FreeBlocksIndex(SizeinBlocks + count);
-                
-
-                
-                WriteFileToFS(Path, blocks, data);//пишем сам файл
-                for (var i = 0; i < blocks.Count;i++ )
+                currentblock++;
+                if (Inode_table[record.Inode_num].BlockPointer[i]!=0)
                 {
-                   if (i<12)
-                   {
-                       Inode_table[freeblock].BlockPointer[i] = (uint)blocks[i];
-                   }
-                    if ((i>=12)&&(i<1024))
+                    if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
                     {
-                        var newblock = Blocks_Bitmap.GetFreeBlock();
+                        //byte[] data33 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);                  
+                        byte[] data2 = FileSystemIO.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE);
+                        FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        offset += data2.Length;
+                        break;
+                    }
+                    byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);                  
+                    FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                    offset += data.Length;
+                }
+            }
+            //if size>12 blocks then read 13 pointer
+            if (SizeinBlocks>12)
+            {
+                //read 13 pointer and get list of addresses
+                int offset2 = 0;
+                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
+                List<int> list = new List<int>();
+                for (var i=0;i<1024;i++)
+                {
+                    byte[] tmp = new byte[sizeof(int)];
+                    Buffer.BlockCopy(adrblock, offset2, tmp, 0, sizeof(int));
+                    offset2 += sizeof(int);
+                    list.Add(BitConverter.ToInt32(tmp,0));
+                }
+                //copy data from addresses
+               for (var i=0;i<list.Count;i++)
+               {
+                   currentblock++;
+                   if (list[i] != 0)
+                   {
+                       if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
+                    {
+                        int offsetf = list[i] * Constants.BLOCK_SIZE;
+                        byte[] data2 = FileSystemIO.ReadFile(OpenPath,Constants.BLOCK_SIZE, offsetf, filesize % Constants.BLOCK_SIZE);
+                        FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        offset += data2.Length;
+                        break;
+                    }
 
-                        Inode_table[freeblock].BlockPointer[12] = (uint)newblock;//выделили блок под адреса
-                        byte[] adrblock = new byte[Constants.BLOCK_SIZE];
-                       for (var j=12; j<blocks.Count;j++)
-                           if (j<1036)
-                           Buffer.BlockCopy(BitConverter.GetBytes(blocks[j]), 0, adrblock, sizeof(int), sizeof(int));//пишем адреса
-                       
-                       FileSystemIO.WriteFile(OpenPath, adrblock, Constants.BLOCK_SIZE, newblock * Constants.BLOCK_SIZE);//пишем уже в фс
-                       Blocks_Bitmap.FreeBlocks -= 1;
+                       byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
+                       FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                       offset += data.Length;
+                   }
+                   else break;
+               }
+
+            }
+            //if size >1036 then Read 14 pointer
+            if (SizeinBlocks>1036)
+            {
+                int offset3 = 0;
+                //read 14 pointer for list of adresses
+                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
+                List<int> list = new List<int>();
+                for (var i = 0; i < 1024; i++)
+                {
+                    byte[] tmp = new byte[sizeof(int)];
+                    Buffer.BlockCopy(adrblock, offset3, tmp, 0, sizeof(int));
+                    offset3 += sizeof(int);
+                    list.Add(BitConverter.ToInt32(tmp, 0));
+                }
+                offset3 = 0;
+                    //обращаемся к адресам и читаем эти блоки
+                    for (var j=0;j<list.Count;j++)
+                    {
+                        int test = list[j];
+                        if (list[j] != 0)
+                        {
+                            byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);// прочитали блок с адресами информационных блоков
+                            if (data[0]!=0)
+                            {
+                            for (var i = 0; i < 1024; i++)
+                            {
+                                byte[] tmp = new byte[sizeof(int)];
+                                Buffer.BlockCopy(data, offset3, tmp, 0, sizeof(int));
+                                offset3 += sizeof(int);
+                                int temp = BitConverter.ToInt32(tmp, 0);
+                                //write block if address !=0
+                                if (temp != 0)
+                                {
+                                    currentblock++;
+                                    if (currentblock == 1395)
+                                        currentblock = currentblock;
+                                    if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
+                                    {
+                                        byte[] data3 = FileSystemIO.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE);
+                                        FileSystemIO.WriteFile(PathToWrite, data3, filesize % Constants.BLOCK_SIZE, offset);
+                                        offset += data3.Length;
+                                        goto Finish;
+                                   }
+
+                                    byte[] data2 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
+                                    FileSystemIO.WriteFile(PathToWrite, data2, Constants.BLOCK_SIZE, offset);
+                                    offset += data2.Length;
+                                }
+                                else break;
+                            }
+                            offset3 = 0;
+                        }
+                        else break;
+                        }
+                    }
+
+            }
+        Finish: return;
+        }
+
+        public void AddFileUpd(string PathToFile)
+        {   //testing
+            int lastwritedblock = 0;
+            int blockswrited = 0;
+            // FILE NAME
+            string name2 = String.Empty;
+            name2 = Path.GetFileName(PathToFile);
+            byte[] name = Controller.GetBytes(name2);      
+            //READ FILE
+            //byte[] data = FileSystemIO.ReadFile(PathToFile, Constants.BLOCK_SIZE);
+            byte[] data = FileSystemIO.ReadFile(PathToFile);
+            //check that file normally writed
+            //FileSystemIO.WriteFile("C:\\test\\" + name2, data, data.Length, 0);
+            var size = data.Length;
+            var SizeinBlocks = (size / Constants.BLOCK_SIZE + (size % Constants.BLOCK_SIZE > 0 ? 1 : 0));
+            //check that we have free space for this file
+            Debug.Assert(SuperBlock.sb_free_blocks_count > SizeinBlocks);
+            Debug.Assert(SuperBlock.sb_free_inodes_count > SizeinBlocks);
+            //start to write file
+            List<int> blocks = new List<int>();//var for  free blocks for file
+            List<int> Iblocks = new List<int>();//var for free inode
+            //selectd blocks for file
+            var inodeblock = InodeBitmap.GetFreeBlock();
+            InodeBitmap.SetBitmapState(inodeblock,true);
+            blocks = Blocks_Bitmap.FreeBlocksIndex(SizeinBlocks);
+            //write file into container
+            WriteFileToFS(OpenPath, blocks, data);
+                //banning Bitmap bits
+                Blocks_Bitmap.SetBitmapState(blocks, true);
+            //variables for SIB and DIB
+            int SIBlock=0;
+            byte[] SIBlockA = new byte[Constants.BLOCK_SIZE];
+            List<int> DIBlockS = new List<int>();
+            int DIBlock = 0;
+            byte[] DIBlockA = new byte[Constants.BLOCK_SIZE];
+            //offset variable
+            int offset = 0;
+            //starting write first 12 address
+             for (var i=0;i<blocks.Count;i++)
+             { 
+                 if (i<12)
+                 {
+                     Inode_table[inodeblock].BlockPointer[i] = (uint)blocks[i];
+                     blockswrited++;
+                 }
+                 else break;
+             }
+            //starting write single indirect block!!!!!!!
+            if (SizeinBlocks>12)
+            {
+                List<int> bugged = new List<int>();
+                bugged = Blocks_Bitmap.FreeBlocksIndex(1);
+                SIBlock = bugged[0]; //select additional block for address
+                Blocks_Bitmap.SetBitmapState(SIBlock, true);
+            }
+               //add address into block 
+            if (blocks.Count > 12)
+            {
+                for (var i = 12; i < blocks.Count; i++)
+                {
+                    if (i < 1036)
+                    {
+                        byte[] temp = BitConverter.GetBytes(blocks[i]);//конвертируем адрес в байтовый массив
+                        Buffer.BlockCopy(temp, 0, SIBlockA, offset, sizeof(int));//пишем адрес в блок
+                        offset += sizeof(int);
+                        lastwritedblock = blocks[i];
+                        blockswrited++;
                     }
                 }
-                Blocks_Bitmap.SetBitmapState(blocks, true);//блокируем биты в битовой карте
-                InodeBitmap.SetBitmapState(freeblock, true);//блокируем биты в Inode битовой карте
-                Blocks_Bitmap.FreeBlocks-=blocks.Count;
-                InodeBitmap.FreeBlocks-=1;
-                cat Record = new cat();
-                Record.Name = name;
-                Record.Inode_num = freeblock;
-                Record.Size = size;
-                Record.Type = 20;
-
-                AddCatRecord(Record);
-                
-
+                offset = 0;
+                FileSystemIO.WriteFile(OpenPath, SIBlockA, Constants.BLOCK_SIZE, SIBlock * Constants.BLOCK_SIZE);//write SIBlockA into container
+                Inode_table[inodeblock].BlockPointer[12] = (uint)SIBlock;
             }
-           return null;
-            
+            //starting write double indirect block!!!!!!!
+            if (SizeinBlocks>1036)
+                {
+                    DIBlock = Blocks_Bitmap.GetFreeBlock();//address for SIB
+                    Blocks_Bitmap.SetBitmapState(DIBlock,true);
+                    DIBlockS = Blocks_Bitmap.FreeBlocksIndex(1024);//select  blocks for SIB  address blocks
+                    Blocks_Bitmap.SetBitmapState(DIBlockS, true);
+                    Blocks_Bitmap.FreeBlocks -= (1 + DIBlockS.Count); 
+                
+            //add addresses of SIBlocks
+            for (var i=0;i<DIBlockS.Count;i++)
+            {
+                byte[] temp = BitConverter.GetBytes(DIBlockS[i]);//конвертируем адрес в байтовый массив
+                Buffer.BlockCopy(temp, 0, DIBlockA, offset, sizeof(int));//пишем адрес в блок
+                offset += sizeof(int);
+            }
+            offset = 0;
+            FileSystemIO.WriteFile(OpenPath, DIBlockA, Constants.BLOCK_SIZE, DIBlock * Constants.BLOCK_SIZE);//write DIBlockA into container
+            //write data addresses into SIBlocks
+                }
+            if (blocks.Count>1036)
+            {
+                //for (var i=1037;i<blocks.Count;i++)
+                int iadr = 1037;
+                while (iadr < blocks.Count-1)
+                {
+                    if (iadr < 1048588)
+                    {
+                        for (var j = 0; j < DIBlockS.Count; j++)
+                        {
+                            byte[] tempres = new byte[Constants.BLOCK_SIZE];
+                            if (iadr >= blocks.Count-1)    
+                            break;
+                            //заполняем отдельно каждый блок адресов (3)
+                            for (var k = 0; k < 1024; k++)
+                            {
+                                int test = blocks[iadr-1];
+                                byte[] temp = BitConverter.GetBytes(blocks[iadr-1]);//конвертируем адрес в байтовый массив
+                                int test2 = BitConverter.ToInt32(temp,0);
+                                Buffer.BlockCopy(temp, 0, tempres, offset, sizeof(int));//пишем адрес в блок
+                                offset += sizeof(int);
+                                blockswrited++;
+                                if (iadr < blocks.Count)
+                                    iadr++;
+                                else break;
+                            }
+                            offset = 0;
+                            FileSystemIO.WriteFile(OpenPath, tempres, Constants.BLOCK_SIZE, DIBlockS[j] * Constants.BLOCK_SIZE);//write block with blocks[] adresses into container
+                        }
+                    }
+                }
+                Inode_table[inodeblock].BlockPointer[13] = (uint)DIBlock;
+            }
+            //addresses writed
+            cat Record = new cat();
+            Record.Name = name;
+            Record.Inode_num = inodeblock;
+            Record.Size = size;
+            Record.Type = 20;
+
+            AddCatRecord(Record);
+            SuperBlock.sb_free_blocks_count = Blocks_Bitmap.FreeBlocks;
+            SuperBlock.sb_free_inodes_count = InodeBitmap.FreeBlocks;
+            byte[] service = Assembly(GetSB(), GetBitmap(), GetIBitmap(), GetINodes(this.Inode_table));
+            FileSystemIO.WriteFile(OpenPath, service, Constants.BLOCK_SIZE, 0);
+    
         }
+      
+        public List<string> ReadFiles()
+        {
+            List<string> names = new List<string>();
+            List<int> inodes = new List<int>();
+            List<cat> catalog = ReadCatRecords(Inode_table[0].BlockPointer[0]);
+
+            int i = 0;
+            while (i<catalog.Count)
+            {
+                if (catalog[i].Inode_num == 0)
+                {
+                    if (i == 0)
+                    {
+                        names.Add("Контейнер пуст");
+                        return names;
+                    }
+                    catalog.RemoveAt(i);
+                    i -= 1;
+                }
+                else i++;
+            }
+
+            for (var j=0;j<catalog.Count;j++)
+            {
+                inodes.Add(catalog[j].Inode_num);
+                string name = Encoding.Unicode.GetString(catalog[j].Name);
+                name = name.Remove(name.IndexOf("\0"),name.Length-name.IndexOf("\0"));
+                names.Add(Encoding.Unicode.GetString(catalog[j].Name));
+            }
+            return names;
+
+        }
+
+        public cat ReadFiles(string CompareName)
+        {
+            List<string> names = new List<string>();
+            List<int> inodes = new List<int>();
+            List<cat> catalog = ReadCatRecords(Inode_table[0].BlockPointer[0]);
+
+            int i = 0;
+            while (i < catalog.Count)
+            {
+                if (catalog[i].Inode_num == 0)
+                {
+                    catalog.RemoveAt(i);
+                    i -= 1;
+                }
+                else i++;
+            }
+           for (var j=0;j<catalog.Count;j++)
+           {
+               if (Encoding.Unicode.GetString(catalog[j].Name)==CompareName)
+               {
+                   return catalog[j];
+               }
+           }
+           return null;
+        }
+
+
+
         private void AddCatRecord(cat record)
         {
             bool b12 = false;
@@ -388,6 +678,10 @@ namespace PrivateDocs
                     //пишем новый блок с элементами каталога
                     cat[] catRecords = new cat[Constants.BLOCK_SIZE / Constants.INODE_SIZE];
                     byte[] data = new byte[Constants.BLOCK_SIZE];
+                    for (int ii = 0; ii < catRecords.Length; ii++)
+                    {
+                        catRecords[ii] = new cat();
+                    }
                     foreach (cat c in catRecords)
                     {
                         var offset = 0;
@@ -522,15 +816,36 @@ namespace PrivateDocs
         }
         private void WriteFileToFS(string Path,List<int> list,byte[] data)
         {
-            var offset = 0;
+            int offset = 0;
+            bool check = false;
+            int size = list.Count;
+            byte[] extend = new byte[Constants.BLOCK_SIZE];
+            if (data.Length<Constants.BLOCK_SIZE)
+            {
+                for (var i = 0; i < data.Length;i++ )
+                    extend[i] = data[i];
+                data = extend;
+            }
+            if (data.Length % Constants.BLOCK_SIZE!=0)
+            {
+                size--;
+            }
             byte[] part = new byte[Constants.BLOCK_SIZE];
-            for (var i = 0; i < list.Count - 1;++i)
+            for (var i = 0; i < size;++i)
             {
                 Buffer.BlockCopy(data, offset, part, 0, part.Length);
                 offset += part.Length;
                 FileSystemIO.WriteFile(Path, part, Constants.BLOCK_SIZE, list[i]*Constants.BLOCK_SIZE);
-
             }
+            if (data.Length % Constants.BLOCK_SIZE != 0)
+            {
+                byte[] temp = new byte[data.Length % Constants.BLOCK_SIZE];
+                Buffer.BlockCopy(data, offset, temp, 0, temp.Length);
+                for (var i = 0; i < temp.Length; i++)
+                    extend[i] = temp[i];
+                FileSystemIO.WriteFile(Path, extend, Constants.BLOCK_SIZE, list[size] * Constants.BLOCK_SIZE);
+            }
+
                 
         }
 
@@ -549,26 +864,23 @@ namespace PrivateDocs
             }
             return result;
         }
-    }
 
-    public class AddressBlock
-    {
-        int[] Address;
-
-        public AddressBlock()
+        static byte[] GetBytes(string str)
         {
-            Address=new int[Constants.BLOCK_SIZE/sizeof(int)];//получается 1024 адреса на блоки по 4кб=4096б
+            byte[] bytes = new byte[str.Length * sizeof(char)];
+            System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
+            return bytes;
         }
+
+        static string GetString(byte[] bytes)
+        {
+            char[] chars = new char[bytes.Length / sizeof(char)];
+            System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length);
+            return new string(chars);
+        }
+
     }
 
-    public class DoubleAB
-    {
-        AddressBlock[] Block;
-        public DoubleAB()
-        {
-            Block = new AddressBlock[Constants.BLOCK_SIZE / sizeof(int)];//а здесь получается 1024 адреса на блоки по 1024 адреса=4194304кб=4096мб
-        }
-    }
 }
 
 

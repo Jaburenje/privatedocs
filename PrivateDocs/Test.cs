@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace PrivateDocs
 {
-    class Test
+   public class Test
     {
         Controller FileSystem;
         public string Path { get; set; }
@@ -33,7 +33,20 @@ namespace PrivateDocs
 
             byte[] tmp = FileSystemIO.ReadFile(Path,88);
             FileSystem.ReadServiceInfo(tmp);
+        }
+        public List<string> ReadFiles()
+        {
+           return FileSystem.ReadFiles();
+        }
+        public void AddFile(string Path)
+        {
+            FileSystem.AddFileUpd(Path);
+        }
 
+        public void ReadFileFromFS(string CompareName,string OutputDir)
+        {
+            //FileSystem.ReadFileFromFS(@"C:\\test\\", FileSystem.ReadFiles(CompareName));
+            FileSystem.ReadFileFromFS(OutputDir, FileSystem.ReadFiles(CompareName));
         }
     }
 }
