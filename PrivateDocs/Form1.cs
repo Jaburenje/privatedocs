@@ -26,10 +26,12 @@ namespace PrivateDocs
             saveFileDialog1.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*"  ;
             saveFileDialog1.FilterIndex = 2 ;
             saveFileDialog1.RestoreDirectory = true ;
-
+            Form2 containerForm = new Form2();
+            containerForm.Owner = this;
+            if (containerForm.ShowDialog()== DialogResult.OK)
             if (saveFileDialog1.ShowDialog() == DialogResult.OK)
             {
-                test = new Test(Convert.ToInt32(textBox1.Text) * 1024 * 1024, saveFileDialog1.FileName);
+                test = new Test(FormsVar.CSize * 1024 * 1024, saveFileDialog1.FileName);
                 test.WritePrimaryBlock(test.Size);
             }
             
@@ -46,12 +48,17 @@ namespace PrivateDocs
 
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
+                Form3 passForm = new Form3();
+                passForm.Owner = this;
+                passForm.ShowDialog();
                 test = new Test(1, openFileDialog1.FileName);
-                test.ReadContainer(openFileDialog1.FileName);
-                List<string> list = new List<string>();
-                list = test.ReadFiles();
-                for (var i = 0; i < list.Count; i++)
-                    checkedListBox1.Items.Add(list[i]);
+                if (test.ReadContainer(openFileDialog1.FileName, System.Text.Encoding.Unicode.GetString(FormsVar.Password)))
+                {
+                    List<string> list = new List<string>();
+                    list = test.ReadFiles();
+                    for (var i = 0; i < list.Count; i++)
+                        checkedListBox1.Items.Add(list[i]);
+                }
             }
             
                 //listBox1.Items.Add(list[i]);
@@ -60,21 +67,26 @@ namespace PrivateDocs
         private void button3_Click(object sender, EventArgs e)
         {
             //Test test = new Test(1, textBox2.Text);
-            test.ReadContainer(test.Path);
-            openFileDialog1.InitialDirectory = "c:\\";
-            openFileDialog1.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*";
-            openFileDialog1.FilterIndex = 2;
-            openFileDialog1.RestoreDirectory = true;
-
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            if (FormsVar.Password!=null)
             {
-                test.AddFile(openFileDialog1.FileName);
-                test.ReadContainer(test.Path);
-                List<string> list = new List<string>();
-                checkedListBox1.Items.Clear();
-                list = test.ReadFiles();
-                for (var i = 0; i < list.Count; i++)
-                    checkedListBox1.Items.Add(list[i]);
+                test.ReadContainer(test.Path, System.Text.Encoding.Unicode.GetString(FormsVar.Password));
+                openFileDialog1.InitialDirectory = "c:\\";
+                openFileDialog1.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*";
+                openFileDialog1.FilterIndex = 2;
+                openFileDialog1.RestoreDirectory = true;
+
+                if (openFileDialog1.ShowDialog() == DialogResult.OK)
+                {
+                    test.AddFile(openFileDialog1.FileName);
+                    test.ReadContainer(test.Path, System.Text.Encoding.Unicode.GetString(FormsVar.Password));
+                    List<string> list = new List<string>();
+                    checkedListBox1.Items.Clear();
+                    list = test.ReadFiles();
+                    for (var i = 0; i < list.Count; i++)
+                        checkedListBox1.Items.Add(list[i]);
+                }
+            }
+            
                 //try
                 //{
                 //    test.AddFile(openFileDialog1.FileName);  
@@ -83,7 +95,7 @@ namespace PrivateDocs
                 //{
                 //    MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
                 //}
-            }
+            
             //test.AddFile(@"C:/test.txt");
            
 
@@ -95,7 +107,7 @@ namespace PrivateDocs
                 if( result == DialogResult.OK )
             {
                 //Test test = new Test(1, textBox2.Text);
-                test.ReadContainer(test.Path);
+                test.ReadContainer(test.Path, System.Text.Encoding.Unicode.GetString(FormsVar.Password));
 
                 foreach (int indexChecked in checkedListBox1.CheckedIndices)
                 {

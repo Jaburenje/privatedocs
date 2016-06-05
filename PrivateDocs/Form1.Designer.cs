@@ -38,11 +38,12 @@
             this.checkedListBox1 = new System.Windows.Forms.CheckedListBox();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
+            this.label1 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(123, 37);
+            this.textBox1.Location = new System.Drawing.Point(12, 24);
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(149, 20);
             this.textBox1.TabIndex = 0;
@@ -50,7 +51,7 @@
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(123, 81);
+            this.button1.Location = new System.Drawing.Point(13, 50);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(149, 53);
             this.button1.TabIndex = 1;
@@ -60,15 +61,16 @@
             // 
             // textBox2
             // 
-            this.textBox2.Location = new System.Drawing.Point(332, 37);
+            this.textBox2.Location = new System.Drawing.Point(280, 24);
             this.textBox2.Name = "textBox2";
-            this.textBox2.Size = new System.Drawing.Size(201, 20);
+            this.textBox2.Size = new System.Drawing.Size(145, 20);
             this.textBox2.TabIndex = 2;
             this.textBox2.Text = "C:\\111";
+            this.textBox2.Visible = false;
             // 
             // button2
             // 
-            this.button2.Location = new System.Drawing.Point(390, 81);
+            this.button2.Location = new System.Drawing.Point(280, 50);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(145, 50);
             this.button2.TabIndex = 3;
@@ -78,7 +80,7 @@
             // 
             // button3
             // 
-            this.button3.Location = new System.Drawing.Point(390, 464);
+            this.button3.Location = new System.Drawing.Point(280, 433);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(143, 24);
             this.button3.TabIndex = 4;
@@ -92,7 +94,7 @@
             // 
             // button4
             // 
-            this.button4.Location = new System.Drawing.Point(123, 464);
+            this.button4.Location = new System.Drawing.Point(13, 433);
             this.button4.Name = "button4";
             this.button4.Size = new System.Drawing.Size(143, 24);
             this.button4.TabIndex = 6;
@@ -103,16 +105,26 @@
             // checkedListBox1
             // 
             this.checkedListBox1.FormattingEnabled = true;
-            this.checkedListBox1.Location = new System.Drawing.Point(122, 140);
+            this.checkedListBox1.Location = new System.Drawing.Point(12, 109);
             this.checkedListBox1.Name = "checkedListBox1";
             this.checkedListBox1.Size = new System.Drawing.Size(411, 304);
             this.checkedListBox1.TabIndex = 7;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(37, 8);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(108, 13);
+            this.label1.TabIndex = 8;
+            this.label1.Text = "Размер контейнера";
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(709, 744);
+            this.ClientSize = new System.Drawing.Size(431, 465);
+            this.Controls.Add(this.label1);
             this.Controls.Add(this.checkedListBox1);
             this.Controls.Add(this.button4);
             this.Controls.Add(this.button3);
@@ -146,6 +158,7 @@
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
         private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
         public Test test;
+        private System.Windows.Forms.Label label1;
     }
 }
 

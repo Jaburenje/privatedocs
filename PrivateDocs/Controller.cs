@@ -18,6 +18,7 @@ namespace PrivateDocs
        public inode_struct Inode;//текущая директория
        public inode_struct[] Inode_table;
        public string OpenPath;
+       public string Password;
     public Controller(string Path)
     {
     SuperBlock=new SB();
@@ -31,12 +32,13 @@ namespace PrivateDocs
         /// Создание контейнера
         /// </summary>
         /// <param name="ContainerSize">РАЗМЕР В БАЙТАХ</param>
-        public void CreateSBManual(int ContainerSize)
+        public void CreateSBManual(int ContainerSize,byte[] pass)
         {
             SuperBlock.sb_blocks_count = ContainerSize / Constants.BLOCK_SIZE;
             SuperBlock.sb_block_size = Constants.BLOCK_SIZE;
             SuperBlock.sb_check_time = Constants.CHECK_INTERVAL;
             SuperBlock.sb_free_blocks_count = SuperBlock.sb_blocks_count - 1;
+            SuperBlock.Password = pass;
         }
         public void ReadServiceInfo(byte[] SBlock)
         {
@@ -327,10 +329,14 @@ namespace PrivateDocs
         {
             string name = Encoding.Unicode.GetString(record.Name);
             name = name.Remove(name.IndexOf("\0"), name.Length - name.IndexOf("\0"));
-            PathToWrite += name;
+            PathToWrite += "\\"+name;
             int filesize = record.Size;
+            //попытка оптимизации скорости чтения
+            byte[] file = new byte[filesize];
+            //------------------------------------
             int SizeinBlocks = (filesize / Constants.BLOCK_SIZE + (filesize % Constants.BLOCK_SIZE > 0 ? 1 : 0));
             int LastBlockSize = (filesize % Constants.BLOCK_SIZE);
+            int fileoffset=0;
             int offset=0;
             int currentblock = 0;
             //read first 12 pointers
@@ -343,12 +349,19 @@ namespace PrivateDocs
                     {
                         //byte[] data33 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);                  
                         byte[] data2 = FileSystemIO.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE);
-                        FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        //optimisation
+                        //FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        Buffer.BlockCopy(data2, 0, file, fileoffset, filesize % Constants.BLOCK_SIZE);
+                        fileoffset += filesize % Constants.BLOCK_SIZE;
                         offset += data2.Length;
+                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                        //File.WriteAllBytes(PathToWrite, file);
                         break;
                     }
                     byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);                  
-                    FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                    //FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                    Buffer.BlockCopy(data, 0, file, fileoffset, data.Length);
+                    fileoffset += data.Length;
                     offset += data.Length;
                 }
             }
@@ -364,6 +377,7 @@ namespace PrivateDocs
                     byte[] tmp = new byte[sizeof(int)];
                     Buffer.BlockCopy(adrblock, offset2, tmp, 0, sizeof(int));
                     offset2 += sizeof(int);
+                    if (BitConverter.ToInt32(tmp,0)!=0)
                     list.Add(BitConverter.ToInt32(tmp,0));
                 }
                 //copy data from addresses
@@ -376,13 +390,19 @@ namespace PrivateDocs
                     {
                         int offsetf = list[i] * Constants.BLOCK_SIZE;
                         byte[] data2 = FileSystemIO.ReadFile(OpenPath,Constants.BLOCK_SIZE, offsetf, filesize % Constants.BLOCK_SIZE);
-                        FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        //FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        Buffer.BlockCopy(data2, 0, file, fileoffset, filesize % Constants.BLOCK_SIZE);
+                        fileoffset += data2.Length;
+                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                        //File.WriteAllBytes(PathToWrite, file);
                         offset += data2.Length;
                         break;
                     }
 
                        byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
-                       FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                       //FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                       Buffer.BlockCopy(data, 0, file, fileoffset, data.Length);
+                       fileoffset += data.Length;
                        offset += data.Length;
                    }
                    else break;
@@ -401,7 +421,8 @@ namespace PrivateDocs
                     byte[] tmp = new byte[sizeof(int)];
                     Buffer.BlockCopy(adrblock, offset3, tmp, 0, sizeof(int));
                     offset3 += sizeof(int);
-                    list.Add(BitConverter.ToInt32(tmp, 0));
+                    if (BitConverter.ToInt32(tmp, 0)!=0)
+                        list.Add(BitConverter.ToInt32(tmp, 0));//!!!
                 }
                 offset3 = 0;
                     //обращаемся к адресам и читаем эти блоки
@@ -420,7 +441,7 @@ namespace PrivateDocs
                                 offset3 += sizeof(int);
                                 int temp = BitConverter.ToInt32(tmp, 0);
                                 //write block if address !=0
-                                if (temp != 0)
+                                if ((temp != 0)&&(temp>0))
                                 {
                                     currentblock++;
                                     if (currentblock == 1395)
@@ -428,23 +449,39 @@ namespace PrivateDocs
                                     if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
                                     {
                                         byte[] data3 = FileSystemIO.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE);
-                                        FileSystemIO.WriteFile(PathToWrite, data3, filesize % Constants.BLOCK_SIZE, offset);
+                                        //FileSystemIO.WriteFile(PathToWrite, data3, filesize % Constants.BLOCK_SIZE, offset);
+                                        Buffer.BlockCopy(data3, 0, file, fileoffset, filesize % Constants.BLOCK_SIZE);
+                                        fileoffset += filesize % Constants.BLOCK_SIZE;
+                                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                                        //File.WriteAllBytes(PathToWrite, file);
                                         offset += data3.Length;
                                         goto Finish;
                                    }
 
                                     byte[] data2 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);
-                                    FileSystemIO.WriteFile(PathToWrite, data2, Constants.BLOCK_SIZE, offset);
+                                    //FileSystemIO.WriteFile(PathToWrite, data2, Constants.BLOCK_SIZE, offset);
+                                    Buffer.BlockCopy(data2, 0, file, fileoffset, data2.Length);
+                                    fileoffset += data2.Length;
+                                    if (fileoffset == filesize)
+                                    {
+                                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                                        goto Finish;
+                                    }
                                     offset += data2.Length;
                                 }
                                 else break;
                             }
                             offset3 = 0;
                         }
-                        else break;
+                        else
+                            {
+                                FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                                break; }
+                                
                         }
                     }
-
+                    //FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                    //File.WriteAllBytes(PathToWrite, file);
             }
         Finish: return;
         }
