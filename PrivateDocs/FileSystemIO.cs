@@ -16,23 +16,23 @@ namespace PrivateDocs
            return data;
         }
 
-        public static void WriteFile(string path,byte[] data,int buffer,int offset)
+        public static void WriteFile(string path, byte[] data, int buffer, int offset, byte[] passwd)
         {
-            try
-            {
+            //try
+            //{
                 FileStream FStream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite, bufferSize: buffer);
                 FStream.Seek(offset, SeekOrigin.Begin);
                 //FStream.SetLength(data.LongLength);
                 FStream.Write(data, 0, data.Length);//0
                 FStream.Close();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.Message);
-            }
+           // }
+            //catch (Exception ex)
+            //{
+            //    Debug.WriteLine(ex.Message);
+            //}
         }
 
-        public static byte[] ReadFile(string path,int buffer)
+        public static byte[] ReadFile(string path, int buffer, byte[] passwd)
         {
             if (File.Exists(path)==false)
             {
@@ -40,8 +40,8 @@ namespace PrivateDocs
             }
             else
             {
-                try
-                {
+                //try
+                //{
                     byte[] buf = new byte[buffer];
                     FileStream ReadFStream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, bufferSize: buffer);
                     int number;
@@ -53,16 +53,16 @@ namespace PrivateDocs
                     byte[] result = list.ToArray<byte>();
                     ReadFStream.Close();
                     return result;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(ex.Message);
-                }
+                //}
+                //catch (Exception ex)
+                //{
+                //    Debug.WriteLine(ex.Message);
+                //}
             }
             return null;
         }
 
-        public static byte[] ReadFile(string path, int buffer,int offset, int length)
+        public static byte[] ReadFile(string path, int buffer, int offset, int length, byte[] passwd)
         {
             if (File.Exists(path) == false)
             {
@@ -70,8 +70,8 @@ namespace PrivateDocs
             }
             else
             {
-                try
-                {
+                //try
+                //{
                     byte[] buf = new byte[buffer];
                     FileStream ReadFStream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, bufferSize: buffer);
                     List<byte> list = new List<byte>();
@@ -84,11 +84,11 @@ namespace PrivateDocs
                     byte[] result = list.ToArray<byte>();
                     ReadFStream.Close();
                     return result;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(ex.Message);
-                }
+                //}
+                //catch (Exception ex)
+                //{
+                //    Debug.WriteLine(ex.Message);
+                //}
             }
             return null;
         }

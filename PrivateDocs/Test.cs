@@ -10,31 +10,33 @@ namespace PrivateDocs
     {
         Controller FileSystem;
         public string Path { get; set; }
-        public int Size { get; set; }
-        public Test(int Size, string Path)
+        public Int64 Size { get; set; }
+        public Test(Int64 Size, string Path)
         {
             FileSystem = new Controller(Path);
             this.Size = Size;
             this.Path = Path;
         }
 
-        public void WritePrimaryBlock(int ContainerSize)
+        public void WritePrimaryBlock(Int64 ContainerSize)
         {
             FileSystem.CreateSBManual(ContainerSize, FormsVar.Password);
-            FileSystemIO.WriteFile(Path, FileSystem.CreateServiceInfo(), Constants.BLOCK_SIZE, 0);
-            
+            FileSystem.CreateServiceInfo();
+            //FileSystemIO.WriteFile(Path, FileSystem.CreateServiceInfo(), Constants.BLOCK_SIZE, 0);
+            //GC.Collect();            
         }
-        public bool ReadContainer(string Path,string Password)
+        public bool OpenContainer(string Path, string Password)
         {
-
-            //byte[] tmp = FileSystemIO.ReadFile(Path,88);
-            byte[] Pass = FileSystemIO.ReadFile(Path,16,72,16);
+            string fix = Password;
+            //fix.Remove(fix.IndexOf("\0"), fix.Length - fix.IndexOf("\0"));
+            byte[] Passw = System.Text.Encoding.Unicode.GetBytes(fix);
+            byte[] Pass = FileSystemIO.ReadFile(Path, 16, 72, 16, Passw);
             string s = System.Text.Encoding.Unicode.GetString(Pass);
-
-            byte[] compare = System.Text.Encoding.Unicode.GetBytes(Password);
+            s = s.Remove(s.IndexOf("\0"), s.Length - s.IndexOf("\0"));
             if (Password == s)
             {
-                byte[] tmp = FileSystemIO.ReadFile(Path, 88, 0, 88);
+                FormsVar.Password = Pass;
+                byte[] tmp = FileSystemIO.ReadFile(Path, 88, 0, 88, FormsVar.Password);
                 FileSystem.ReadServiceInfo(tmp);
                 return true;
             }
@@ -44,9 +46,14 @@ namespace PrivateDocs
                 return false;
             }
         }
+        public void ReadContainer(string Path)
+        {
+                byte[] tmp = FileSystemIO.ReadFile(Path, 88, 0, 88, FormsVar.Password);
+                FileSystem.ReadServiceInfo(tmp); 
+        }
         public List<string> ReadFiles()
         {
-           return FileSystem.ReadFiles();
+           return FileSystem.ReadFilesMEM();
         }
         public void AddFile(string Path)
         {
@@ -55,18 +62,25 @@ namespace PrivateDocs
 
         public void ReadFileFromFS(string CompareName,string OutputDir)
         {
-            //FileSystem.ReadFileFromFS(@"C:\\test\\", FileSystem.ReadFiles(CompareName));
-            FileSystem.ReadFileFromFS(OutputDir, FileSystem.ReadFiles(CompareName));
+            //FileSystem.ReadFileFromFS(OutputDir, FileSystem.ReadFiles(CompareName));
+            FileSystem.ReadFileFromFSlist(OutputDir, FileSystem.ReadFilesMEM(CompareName));
         }
+
+        public void RemoveFile(string CompareName)
+        {
+            FileSystem.RemoveFile(FileSystem.ReadFilesMEM(CompareName));
+        }
+
     }
 
     public class FormsVar
     {
-        public static int CSize;
+        public static Int64 CSize;
         public static byte[] Password { get; set; }
-        
+        public static int BSize;
         FormsVar()
         {
+            BSize = 0;
             CSize = 0;
             Password = new byte[Constants.MAX_PASSWORD_LENGTH];
         }

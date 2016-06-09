@@ -13,28 +13,28 @@ namespace PrivateDocs
         public ushort FileType { get; set; } //2 тип файла(папка(10) или файл(20) 
         public int FileSize { get; set; } //4 размер в байтах
 
-        public uint[] BlockPointer { get; set; } //4*15=60 умножение на 15 т.е. 15 полей указатели на блоки с данными
+        public int[] BlockPointer { get; set; } //4*15=60 умножение на 15 т.е. 15 полей указатели на блоки с данными
         //70 
         private byte[] filling;    //дозаполнение до полноценного субблока
         public inode_struct()
         {
             Number = -1;
-            BlockPointer = new uint[Constants.INODE_BLOCKS];
+            BlockPointer = new int[Constants.INODE_BLOCKS];
             filling = new byte[Constants.INODE_SIZE - 70];
         }
         public inode_struct(int inode_index)
         {
             Number = inode_index;
-            BlockPointer = new uint[Constants.INODE_BLOCKS];
+            BlockPointer = new int[Constants.INODE_BLOCKS];
             filling = new byte[Constants.INODE_SIZE - 70];
         }
         
-        public inode_struct(int Number,ushort FileType,int FileSize, uint[] BlockPointer)
+        public inode_struct(int Number,ushort FileType,int FileSize, int[] BlockPointer)
         {
             this.Number=Number;
             this.FileType = FileType;
             this.FileSize = FileSize;
-            this.BlockPointer = new uint[Constants.INODE_BLOCKS];
+            this.BlockPointer = new int[Constants.INODE_BLOCKS];
             for (var i=0;i<BlockPointer.Length;i++)
             {
                 this.BlockPointer[i] = BlockPointer[i];
@@ -61,7 +61,7 @@ namespace PrivateDocs
             this.FileSize = BitConverter.ToInt32(FileSize, 0);
             offset += FileSize.Length;
 
-            BlockPointer = new UInt32[Constants.INODE_BLOCKS];
+            BlockPointer = new Int32[Constants.INODE_BLOCKS];
             Buffer.BlockCopy(inode_byte, offset, BlockPointer, 0, BlockPointer.Length * Marshal.SizeOf(BlockPointer[0]));
             offset += BlockPointer.Length * Marshal.SizeOf(BlockPointer[0]);
 
@@ -100,7 +100,7 @@ namespace PrivateDocs
             return result;
         }
 
-        public void Set(int Number,ushort FileType, int FileSize,uint[] BlockPointer)
+        public void Set(int Number,ushort FileType, int FileSize,int[] BlockPointer)
         {
             this.Number = Number;
             this.FileType = FileType;
@@ -129,7 +129,7 @@ namespace PrivateDocs
             this.FileSize = BitConverter.ToInt32(FileSize, 0);
             offset += FileSize.Length;
 
-            BlockPointer = new UInt32[Constants.INODE_BLOCKS];
+            BlockPointer = new Int32[Constants.INODE_BLOCKS];
             Buffer.BlockCopy(value, offset, BlockPointer, 0, BlockPointer.Length * Marshal.SizeOf(BlockPointer[0]));
             offset += BlockPointer.Length * Marshal.SizeOf(BlockPointer[0]);
 

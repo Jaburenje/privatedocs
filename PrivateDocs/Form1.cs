@@ -16,7 +16,6 @@ namespace PrivateDocs
         {
             InitializeComponent();
             //Test test = new Test(1,"C:\\");
-           
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -28,12 +27,16 @@ namespace PrivateDocs
             saveFileDialog1.RestoreDirectory = true ;
             Form2 containerForm = new Form2();
             containerForm.Owner = this;
-            if (containerForm.ShowDialog()== DialogResult.OK)
-            if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+            if (containerForm.ShowDialog()==DialogResult.OK)
             {
-                test = new Test(FormsVar.CSize * 1024 * 1024, saveFileDialog1.FileName);
-                test.WritePrimaryBlock(test.Size);
+                if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+                {
+                    test = new Test(FormsVar.CSize * 1024 * 1024, saveFileDialog1.FileName);
+                    test.WritePrimaryBlock(test.Size);
+                   
+                }
             }
+            GC.Collect();            
             
         }
 
@@ -52,8 +55,26 @@ namespace PrivateDocs
                 passForm.Owner = this;
                 passForm.ShowDialog();
                 test = new Test(1, openFileDialog1.FileName);
-                if (test.ReadContainer(openFileDialog1.FileName, System.Text.Encoding.Unicode.GetString(FormsVar.Password)))
+                if (FormsVar.Password!=null)
+                if (test.OpenContainer(openFileDialog1.FileName, System.Text.Encoding.Unicode.GetString(FormsVar.Password)))
                 {
+                    label1.Text = FormsVar.BSize.ToString()+ " Блоков по 4 кб";
+                    if (FormsVar.BSize > 1048576)
+                    {
+                        var cnt = (FormsVar.BSize*4) / 1024 ;
+                        label2.Text = Convert.ToString(cnt) + " MB";
+                    }
+                    else
+                    if (FormsVar.BSize > 256)
+                    {
+                        var cnt = (FormsVar.BSize * 4096) / 1024 / 1024;
+                        label2.Text = Convert.ToString(cnt) + " MB";
+                    }
+                    else
+                    {
+                        var cnt = (FormsVar.BSize * 4096) / 1024;
+                        label2.Text = Convert.ToString(cnt) + " KB";
+                    }
                     List<string> list = new List<string>();
                     list = test.ReadFiles();
                     for (var i = 0; i < list.Count; i++)
@@ -61,6 +82,7 @@ namespace PrivateDocs
                 }
             }
             
+            GC.Collect();            
                 //listBox1.Items.Add(list[i]);
         }
 
@@ -69,8 +91,8 @@ namespace PrivateDocs
             //Test test = new Test(1, textBox2.Text);
             if (FormsVar.Password!=null)
             {
-                test.ReadContainer(test.Path, System.Text.Encoding.Unicode.GetString(FormsVar.Password));
-                openFileDialog1.InitialDirectory = "c:\\";
+                test.ReadContainer(test.Path);
+                openFileDialog1.InitialDirectory = "E:\\теория";
                 openFileDialog1.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*";
                 openFileDialog1.FilterIndex = 2;
                 openFileDialog1.RestoreDirectory = true;
@@ -78,15 +100,33 @@ namespace PrivateDocs
                 if (openFileDialog1.ShowDialog() == DialogResult.OK)
                 {
                     test.AddFile(openFileDialog1.FileName);
-                    test.ReadContainer(test.Path, System.Text.Encoding.Unicode.GetString(FormsVar.Password));
+                    test.ReadContainer(test.Path);
                     List<string> list = new List<string>();
                     checkedListBox1.Items.Clear();
                     list = test.ReadFiles();
                     for (var i = 0; i < list.Count; i++)
                         checkedListBox1.Items.Add(list[i]);
+                    label1.Text = FormsVar.BSize.ToString() + " Блоков по 4 кб";
+                    if (FormsVar.BSize > 1048576)
+                    {
+                        var cnt = (FormsVar.BSize * 4) / 1024;
+                        label2.Text = Convert.ToString(cnt) + " MB";
+                    }
+                    else
+                        if (FormsVar.BSize > 256)
+                        {
+                            var cnt = (FormsVar.BSize * 4096) / 1024 / 1024;
+                            label2.Text = Convert.ToString(cnt) + " MB";
+                        }
+                        else
+                        {
+                            var cnt = (FormsVar.BSize * 4096) / 1024;
+                            label2.Text = Convert.ToString(cnt) + " KB";
+                        }
                 }
             }
-            
+            GC.Collect();            
+
                 //try
                 //{
                 //    test.AddFile(openFileDialog1.FileName);  
@@ -107,14 +147,34 @@ namespace PrivateDocs
                 if( result == DialogResult.OK )
             {
                 //Test test = new Test(1, textBox2.Text);
-                test.ReadContainer(test.Path, System.Text.Encoding.Unicode.GetString(FormsVar.Password));
+                test.ReadContainer(test.Path);
 
                 foreach (int indexChecked in checkedListBox1.CheckedIndices)
                 {
                     string tmp = checkedListBox1.Items[indexChecked].ToString();
                     test.ReadFileFromFS(tmp,folderBrowserDialog1.SelectedPath);
                 }
+                label1.Text = FormsVar.BSize.ToString() + " Блоков по 4 кб";
+
+                if (FormsVar.BSize > 1048576)
+                {
+                    var cnt = (FormsVar.BSize * 4) / 1024;
+                    label2.Text = Convert.ToString(cnt) + " MB";
+                }
+                else
+                    if (FormsVar.BSize > 256)
+                    {
+                        var cnt = (FormsVar.BSize * 4096) / 1024 / 1024;
+                        label2.Text = Convert.ToString(cnt) + " MB";
+                    }
+                    else
+                    {
+                        var cnt = (FormsVar.BSize * 4096) / 1024;
+                        label2.Text = Convert.ToString(cnt) + " KB";
+                    }
+
             }
+                GC.Collect();            
 
 
            //    Test test = new Test(1, textBox2.Text);
@@ -126,5 +186,45 @@ namespace PrivateDocs
            //    test.ReadFileFromFS(tmp);
            //}
         }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+           
+                //if (test.ReadContainer(test.Path))
+                test.ReadContainer(test.Path);
+                    foreach (int indexChecked in checkedListBox1.CheckedIndices)
+                    {
+                        string tmp = checkedListBox1.Items[indexChecked].ToString();
+                        test.RemoveFile(tmp);
+                        //if (test.ReadContainer(test.Path))//, System.Text.Encoding.Unicode.GetString(FormsVar.Password)))
+                        //{
+                                checkedListBox1.Items.Clear();
+                                List<string> list = new List<string>();
+                                list = test.ReadFiles();
+                                for (var i = 0; i < list.Count; i++)
+                                    checkedListBox1.Items.Add(list[i]);
+                        //}
+                    }
+                label1.Text = FormsVar.BSize.ToString() + " Блоков по 4 кб";
+                if (FormsVar.BSize > 1048576)
+                {
+                    var cnt = (FormsVar.BSize * 4) / 1024;
+                    label2.Text = Convert.ToString(cnt) + " MB";
+                }
+                else
+                    if (FormsVar.BSize > 256)
+                    {
+                        var cnt = (FormsVar.BSize * 4096) / 1024 / 1024;
+                        label2.Text = Convert.ToString(cnt) + " MB";
+                    }
+                    else
+                    {
+                        var cnt = (FormsVar.BSize * 4096) / 1024;
+                        label2.Text = Convert.ToString(cnt) + " KB";
+                    }
+                GC.Collect();
+        
+        }
+
     }
 }
