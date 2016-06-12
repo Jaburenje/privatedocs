@@ -33,7 +33,7 @@ namespace PrivateDocs
         /// </summary>
         public SB()
         {
-            Password = new byte[Constants.MAX_PASSWORD_LENGTH];
+            //Password = new byte[Constants.MAX_PASSWORD_LENGTH];
         }
         /// <summary>
         /// заполнение суперблока

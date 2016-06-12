@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -47,18 +48,18 @@ namespace PrivateDocs
         {
             SB ReadedSB = new SB(SBlock);
             SuperBlock = ReadedSB;
-            byte[] BBlock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, (SuperBlock.sb_block_map_index - 1) * Constants.BLOCK_SIZE, FormsVar.Password);
+            byte[] BBlock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, (SuperBlock.sb_block_map_index - 1) * Constants.BLOCK_SIZE, FormsVar.Password);
             Bitmap_Blocks BB = new Bitmap_Blocks(BBlock);
             Blocks_Bitmap = BB;
-            byte[] IBlock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE * SuperBlock.sb_block_map_index, (SuperBlock.sb_inodes_map_index - SuperBlock.sb_block_map_index) * Constants.BLOCK_SIZE, FormsVar.Password);
+            byte[] IBlock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE * SuperBlock.sb_block_map_index, (SuperBlock.sb_inodes_map_index - SuperBlock.sb_block_map_index) * Constants.BLOCK_SIZE, FormsVar.Password);
             Bitmap_Blocks IB = new Bitmap_Blocks(IBlock);
             InodeBitmap = IB;
-            byte[] ind = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE * (SuperBlock.sb_inodes_map_index), Constants.BLOCK_SIZE, FormsVar.Password);
+            byte[] ind = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE * (SuperBlock.sb_inodes_map_index), Constants.BLOCK_SIZE, FormsVar.Password);
             Inode = new inode_struct(0);
             Inode.Set(ind);
 
             //var offset=0;
-            //byte[] ITable = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE * SuperBlock.sb_inodes_map_index, (SuperBlock.sb_first_data_block-SuperBlock.sb_inodes_map_index-SuperBlock.sb_block_map_index-1) * Constants.BLOCK_SIZE);
+            //byte[] ITable = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, Constants.BLOCK_SIZE * SuperBlock.sb_inodes_map_index, (SuperBlock.sb_first_data_block-SuperBlock.sb_inodes_map_index-SuperBlock.sb_block_map_index-1) * Constants.BLOCK_SIZE);
             //this.Inode_table = new inode_struct[InodeBitmap.TotalBlocks];
             //for (var i = 0; i < InodeBitmap.TotalBlocks;i++ )
             //{
@@ -72,8 +73,9 @@ namespace PrivateDocs
             FormsVar.BSize = SuperBlock.sb_free_blocks_count;
         }
 
-        public void CreateServiceInfo()//byte[]
+        public void CreateServiceInfo(BackgroundWorker worker, DoWorkEventArgs e)//byte[]
         {
+            worker.ReportProgress(0);
             Blocks_Bitmap = new Bitmap_Blocks(SuperBlock.sb_blocks_count);
             var bytesize = Blocks_Bitmap.GetSize();
             var bb_size = bytesize;
@@ -102,7 +104,7 @@ namespace PrivateDocs
             InodeBitmap = new Bitmap_Blocks(inodes_count);
             ib_size = InodeBitmap.GetSize();
             ib_bl_size = (ib_size / Constants.BLOCK_SIZE + (ib_size % Constants.BLOCK_SIZE > 0 ? 1 : 0));
-          
+            worker.ReportProgress(20);
             //перерасчитанная структура с учетом метс акоторое уже будет занято inode_table и bitmapами
             inode_struct[] Inodes = new inode_struct[inodes_count];
 
@@ -168,14 +170,18 @@ namespace PrivateDocs
             //    offset += block.Length;
             //}
             int filelength = GetSB().Length + GetBitmap().Length + GetIBitmap().Length;
-            FileSystemIO.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            worker.ReportProgress(30);
             int inoffset = GetINodes2(Inodes, filelength);
+            worker.ReportProgress(50);
             //AddCatalogStructure(inoffset);
+            worker.ReportProgress(70);
             AddCatalogStructureMEM(inoffset);
-            //FileSystemIO.WriteFile(OpenPath, GetINodes(Inodes), Constants.BLOCK_SIZE, 0);
-            //FileSystemIO.WriteFile(OpenPath, byteroot, Constants.BLOCK_SIZE, inoffset);
+            worker.ReportProgress(100);
+            //Encryption.WriteFile(OpenPath, GetINodes(Inodes), Constants.BLOCK_SIZE, 0);
+            //Encryption.WriteFile(OpenPath, byteroot, Constants.BLOCK_SIZE, inoffset);
             
             //return result;
         }
@@ -244,7 +250,7 @@ namespace PrivateDocs
         {
             inode_struct Inode = new inode_struct(inodenum);
             var size = Inode.GetSize();
-            byte[] inode = FileSystemIO.ReadFile(OpenPath, size, size * inodenum + (SuperBlock.sb_inodes_map_index) * Constants.BLOCK_SIZE, size, FormsVar.Password);
+            byte[] inode = Encryption.ReadFile(OpenPath, size, size * inodenum + (SuperBlock.sb_inodes_map_index) * Constants.BLOCK_SIZE, size, FormsVar.Password);
             Inode.Set(inode);
             return Inode;
         }
@@ -253,7 +259,7 @@ namespace PrivateDocs
         {
             byte[] data = Inode.Get();
             int size = data.Length;
-            FileSystemIO.WriteFile(OpenPath, data, size, size * inodenum + (SuperBlock.sb_inodes_map_index) * Constants.BLOCK_SIZE, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, data, size, size * inodenum + (SuperBlock.sb_inodes_map_index) * Constants.BLOCK_SIZE, FormsVar.Password);
         }
 
         public byte[] GetINodes(inode_struct[] inodes)
@@ -301,7 +307,7 @@ namespace PrivateDocs
                    remaining -= inode.Length;
                    if ((offset == 134217728)||(remaining==0))
                    {
-                       FileSystemIO.WriteFile(OpenPath, In_arr, In_arr.Length, gloffset, FormsVar.Password);
+                       Encryption.WriteFile(OpenPath, In_arr, In_arr.Length, gloffset, FormsVar.Password);
                        if ((offset != 134217728) && (remaining == 0))
                            gloffset += offset;
                        else
@@ -327,7 +333,7 @@ namespace PrivateDocs
                     Buffer.BlockCopy(inode, 0, In_arr, offset, inode.Length);
                     offset += inode.Length;
                 }
-                FileSystemIO.WriteFile(OpenPath, In_arr, In_arr.Length, fileoffset, FormsVar.Password);
+                Encryption.WriteFile(OpenPath, In_arr, In_arr.Length, fileoffset, FormsVar.Password);
                 return In_arr.Length + fileoffset;
 
             }
@@ -370,15 +376,16 @@ namespace PrivateDocs
                         temp.Type = 10;
                     }
                     byte[] data = temp.Get();
-                    FileSystemIO.WriteFile(OpenPath, data, data.Length, offset, FormsVar.Password);
+                    Encryption.WriteFile(OpenPath, data, data.Length, offset, FormsVar.Password);
                     offset += data.Length;
                 }  
             }
             int filelength = GetSB().Length + GetBitmap().Length + GetIBitmap().Length;
-            FileSystemIO.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
         }
+
 
         public void AddCatalogStructureMEM(int offset)
         {
@@ -406,23 +413,23 @@ namespace PrivateDocs
                     }
                     byte[] data = temp.Get();
                     Buffer.BlockCopy(data,0,result,offset1,data.Length);
-                    //FileSystemIO.WriteFile(OpenPath, data, data.Length, offset); 
+                    //Encryption.WriteFile(OpenPath, data, data.Length, offset); 
                     offset1 += data.Length;
                 }
                 
             }
-            FileSystemIO.WriteFile(OpenPath, result, result.Length, foffset, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, result, result.Length, foffset, FormsVar.Password);
             int filelength = GetSB().Length + GetBitmap().Length + GetIBitmap().Length;
-            FileSystemIO.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
         }
 
         public List<cat> ReadCatRecords(int block)
         {
             List<cat> result = new List<cat>();
             int offset=0;
-            byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, block * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+            byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, block * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
             for (var i=0;i<data.Length/Constants.CAT_SIZE;i++)
             {
                 byte[] part = new byte[Constants.CAT_SIZE];
@@ -441,7 +448,7 @@ namespace PrivateDocs
             int offset = 0;
             for (var j=0;j<block.Count;j++)
             {
-                byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, block[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, block[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 for (var i = 0; i < data.Length / Constants.CAT_SIZE; i++)
                 {
                 byte[] part = new byte[Constants.CAT_SIZE];
@@ -466,8 +473,8 @@ namespace PrivateDocs
             int block = inodenum * Constants.CAT_SIZE + count * Constants.BLOCK_SIZE;
             //
             byte[] data = record.Get();
-            //byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
-            FileSystemIO.WriteFile(OpenPath, data, Constants.CAT_SIZE, block, FormsVar.Password);
+            //byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
+            Encryption.WriteFile(OpenPath, data, Constants.CAT_SIZE, block, FormsVar.Password);
             //for (var i = 0; i < data.Length / Constants.CAT_SIZE; i++)
             //{
             //    byte[] part = new byte[Constants.CAT_SIZE];
@@ -481,7 +488,7 @@ namespace PrivateDocs
             //        cat tmp2 = new cat();
             //        byte[] nullblock = tmp2.Get();
             //        Buffer.BlockCopy(nullblock, 0, data, offset, nullblock.Length);
-            //        FileSystemIO.WriteFile(OpenPath, data, Constants.BLOCK_SIZE, block * Constants.BLOCK_SIZE);
+            //        Encryption.WriteFile(OpenPath, data, Constants.BLOCK_SIZE, block * Constants.BLOCK_SIZE);
             //    }
             //    offset += part.Length;
             //}
@@ -502,7 +509,7 @@ namespace PrivateDocs
             {
                 //read 13 pointer and get list of addresses
                 int offset2 = 0;
-                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] adrblock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 List<int> list = new List<int>();
                 for (var i = 0; i < 1024; i++)
                 {
@@ -518,7 +525,7 @@ namespace PrivateDocs
             {
                 int offset3 = 0;
                 //read 14 pointer for list of adresses
-                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] adrblock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 List<int> list = new List<int>();
                 for (var i = 0; i < 1024; i++)
                 {
@@ -541,7 +548,7 @@ namespace PrivateDocs
                         int test = list[j];
                         if (list[j] != 0)
                         {
-                            byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);// прочитали блок с адресами информационных блоков
+                            byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);// прочитали блок с адресами информационных блоков
                             //if (data[0]!=0)
                             if ((data[0] != 0) || (data[1] != 0) || (data[2] != 0) || (data[3] != 0))
                             {
@@ -571,13 +578,70 @@ namespace PrivateDocs
             SuperBlock.sb_free_inodes_count = InodeBitmap.FreeBlocks;
            
             int filelength = GetSB().Length + GetBitmap().Length + GetIBitmap().Length;
-            FileSystemIO.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
             
             RewriteInode(record.Inode_num, Inode);
             FormsVar.BSize = SuperBlock.sb_free_blocks_count;
         }
+
+        public void OpenFile(cat record,BackgroundWorker worker, DoWorkEventArgs e)
+        {
+            string PathtoWrite = Path.GetTempPath();
+            string name = Encoding.Unicode.GetString(record.Name);
+            name = name.Remove(name.IndexOf("\0"), name.Length - name.IndexOf("\0"));
+            ReadFileFromFSlist(PathtoWrite, record);
+            string Path2 = PathtoWrite + name;
+            ProcessStartInfo psInfo = new ProcessStartInfo();
+            //Process myProc2 = new Process();
+            //string format = Path.GetExtension(Path2);
+            //if ((format == ".jpg") || (format == ".png") || (format == ".jpeg") || (format == ".tiff"))
+            //    myProc2=OpenFileCS.OpenPicView(Path2);
+            //else
+            //if ((format == ".docx") || (format == ".doc"))
+            //    myProc2 = OpenFileCS.OpenMicrosoftWord(Path2);
+            //else
+            //if ((format == ".xls") || (format == ".xlsx"))
+            //    myProc2 = OpenFileCS.OpenExcel(Path2);
+            //else
+            //{
+                Process myProc = Process.Start(Path2);
+                try
+                {
+                    myProc.WaitForExit();
+                    RemoveFile(record);
+                    PathtoWrite += "\\" + name;
+                    AddFileUpd(PathtoWrite);
+                    File.Delete(PathtoWrite);
+                }
+                    catch
+                {
+                    Exception ex = new Exception();
+                    System.Windows.Forms.MessageBox.Show("Невозможно безопасно открыть файл");
+                    PathtoWrite += "\\" + name;
+                    File.Delete(PathtoWrite);
+                    worker.ReportProgress(100); 
+                }
+                worker.ReportProgress(100); 
+            //}
+            //try
+            //{
+            //    myProc2.WaitForExit();
+            //    RemoveFile(record);
+            //    PathtoWrite += "\\" + name;
+            //    AddFileUpd(PathtoWrite);
+            //    File.Delete(PathtoWrite);
+            //}
+            //catch
+            //{
+            //    System.Windows.Forms.MessageBox.Show("Невозможно безопасно открыть файл");
+            //    PathtoWrite += "\\" + name;
+            //    File.Delete(PathtoWrite);
+            //}
+            
+        }
+
         public void ReadFileFromFSlist(string PathToWrite,cat record)
         {
             string name = Encoding.Unicode.GetString(record.Name);
@@ -605,7 +669,7 @@ namespace PrivateDocs
             if (SizeinBlocks > 12)
             {
                 int offset2 = 0;
-                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] adrblock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 for (var i = 0; i < 1024; i++)
                 {
                     byte[] tmp = new byte[sizeof(int)];
@@ -620,7 +684,7 @@ namespace PrivateDocs
             {
                 int offset3 = 0;
                 //read 14 pointer for list of adresses
-                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] adrblock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 List<int> list = new List<int>();
                 for (var i = 0; i < 1024; i++)
                 {
@@ -637,7 +701,7 @@ namespace PrivateDocs
                     int test = list[j];
                     if (list[j] != 0)
                     {
-                        byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);// прочитали блок с адресами информационных блоков
+                        byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);// прочитали блок с адресами информационных блоков
                         if ((data[0] != 0) || (data[1] != 0) || (data[2] != 0) || (data[3] != 0))
                         {
                             for (var i = 0; i < 1024; i++)
@@ -661,6 +725,7 @@ namespace PrivateDocs
             //ReadFileofFS(PathToWrite, blocks, record.Size);
             ReadFileofFSMEM(PathToWrite, blocks, record.Size);
         }
+
         public void ReadFileFromFS(string PathToWrite,cat record)
         {
             string name = Encoding.Unicode.GetString(record.Name);
@@ -685,19 +750,19 @@ namespace PrivateDocs
                 {
                     if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
                     {
-                        //byte[] data33 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);                  
-                        byte[] data2 = FileSystemIO.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, (int)Inode.BlockPointer[i] * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE, FormsVar.Password);
+                        //byte[] data33 = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode_table[record.Inode_num].BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE);                  
+                        byte[] data2 = Encryption.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, (int)Inode.BlockPointer[i] * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE, FormsVar.Password);
                         //optimisation
-                        //FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        //Encryption.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
                         Buffer.BlockCopy(data2, 0, file, fileoffset, filesize % Constants.BLOCK_SIZE);
                         fileoffset += filesize % Constants.BLOCK_SIZE;
                         offset += data2.Length;
-                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
+                        Encryption.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
                         //File.WriteAllBytes(PathToWrite, file);
                         break;
                     }
-                    byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);                  
-                    //FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                    byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);                  
+                    //Encryption.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
                     Buffer.BlockCopy(data, 0, file, fileoffset, data.Length);
                     fileoffset += data.Length;
                     offset += data.Length;
@@ -708,7 +773,7 @@ namespace PrivateDocs
             {
                 //read 13 pointer and get list of addresses
                 int offset2 = 0;
-                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] adrblock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[12] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 List<int> list = new List<int>();
                 for (var i=0;i<1024;i++)
                 {
@@ -727,18 +792,18 @@ namespace PrivateDocs
                        if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
                     {
                         int offsetf = list[i] * Constants.BLOCK_SIZE;
-                        byte[] data2 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, offsetf, filesize % Constants.BLOCK_SIZE, FormsVar.Password);
-                        //FileSystemIO.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
+                        byte[] data2 = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, offsetf, filesize % Constants.BLOCK_SIZE, FormsVar.Password);
+                        //Encryption.WriteFile(PathToWrite, data2, filesize % Constants.BLOCK_SIZE, offset);
                         Buffer.BlockCopy(data2, 0, file, fileoffset, filesize % Constants.BLOCK_SIZE);
                         fileoffset += data2.Length;
-                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
+                        Encryption.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
                         //File.WriteAllBytes(PathToWrite, file);
                         offset += data2.Length;
                         break;
                     }
 
-                       byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
-                       //FileSystemIO.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
+                       byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                       //Encryption.WriteFile(PathToWrite, data, Constants.BLOCK_SIZE, offset);
                        Buffer.BlockCopy(data, 0, file, fileoffset, data.Length);
                        fileoffset += data.Length;
                        offset += data.Length;
@@ -752,7 +817,7 @@ namespace PrivateDocs
             {
                 int offset3 = 0;
                 //read 14 pointer for list of adresses
-                byte[] adrblock = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                byte[] adrblock = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, (int)Inode.BlockPointer[13] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 List<int> list = new List<int>();
                 for (var i = 0; i < 1024; i++)
                 {
@@ -769,7 +834,7 @@ namespace PrivateDocs
                         int test = list[j];
                         if (list[j] != 0)
                         {
-                            byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);// прочитали блок с адресами информационных блоков
+                            byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[j] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);// прочитали блок с адресами информационных блоков
                             if ((data[0]!=0)||(data[1]!=0)||(data[2]!=0)||(data[3]!=0))
                             {
                             for (var i = 0; i < 1024; i++)
@@ -786,23 +851,23 @@ namespace PrivateDocs
                                         currentblock = currentblock;
                                     if ((filesize % Constants.BLOCK_SIZE > 0) && (currentblock == SizeinBlocks))
                                     {
-                                        byte[] data3 = FileSystemIO.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE, FormsVar.Password);
-                                        //FileSystemIO.WriteFile(PathToWrite, data3, filesize % Constants.BLOCK_SIZE, offset);
+                                        byte[] data3 = Encryption.ReadFile(OpenPath, filesize % Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, filesize % Constants.BLOCK_SIZE, FormsVar.Password);
+                                        //Encryption.WriteFile(PathToWrite, data3, filesize % Constants.BLOCK_SIZE, offset);
                                         Buffer.BlockCopy(data3, 0, file, fileoffset, filesize % Constants.BLOCK_SIZE);
                                         fileoffset += filesize % Constants.BLOCK_SIZE;
-                                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
+                                        Encryption.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
                                         //File.WriteAllBytes(PathToWrite, file);
                                         offset += data3.Length;
                                         goto Finish;
                                    }
 
-                                    byte[] data2 = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
-                                    //FileSystemIO.WriteFile(PathToWrite, data2, Constants.BLOCK_SIZE, offset);
+                                    byte[] data2 = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, temp * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                                    //Encryption.WriteFile(PathToWrite, data2, Constants.BLOCK_SIZE, offset);
                                     Buffer.BlockCopy(data2, 0, file, fileoffset, data2.Length);
                                     fileoffset += data2.Length;
                                     if (fileoffset == filesize)
                                     {
-                                        FileSystemIO.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
+                                        Encryption.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
                                         goto Finish;
                                     }
                                     offset += data2.Length;
@@ -813,37 +878,35 @@ namespace PrivateDocs
                         }
                         else
                             {
-                                FileSystemIO.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
+                                Encryption.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
                                 break; }
                                 
                         }
                     }
-                    //FileSystemIO.WriteFile(PathToWrite, file, filesize, 0);
+                    //Encryption.WriteFile(PathToWrite, file, filesize, 0);
                     //File.WriteAllBytes(PathToWrite, file);
             }
             else
-                FileSystemIO.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
+                Encryption.WriteFile(PathToWrite, file, filesize, 0, FormsVar.Password);
             FormsVar.BSize = SuperBlock.sb_free_blocks_count;
         Finish: return;
         }
 
         public void AddFileUpd(string PathToFile)
-        {   //testing
-           
-            // FILE NAME
+        {  
             string name2 = String.Empty;
             name2 = Path.GetFileName(PathToFile);
             Random rnd=new Random();
-            if (ComparewithFiles(name2))
+            if (ComparewithFilesMEM(name2))
                 name2 = Path.GetFileNameWithoutExtension(PathToFile) + rnd.Next()+ Path.GetExtension(PathToFile);
             byte[] bname = Controller.GetBytes(name2);
             byte[] name = new byte[118];
             Buffer.BlockCopy(bname, 0, name, 0, bname.Length);
             //READ FILE
-            //byte[] data = FileSystemIO.ReadFile(PathToFile, Constants.BLOCK_SIZE);
+            //byte[] data = Encryption.ReadFile(PathToFile, Constants.BLOCK_SIZE);
             byte[] data = FileSystemIO.ReadFile(PathToFile);
             //check that file normally writed
-            //FileSystemIO.WriteFile("C:\\test\\" + name2, data, data.Length, 0);
+            //Encryption.WriteFile("C:\\test\\" + name2, data, data.Length, 0);
             var size = data.Length;
             var SizeinBlocks = (size / Constants.BLOCK_SIZE + (size % Constants.BLOCK_SIZE > 0 ? 1 : 0));
             //check that we have free space for this file
@@ -877,11 +940,9 @@ namespace PrivateDocs
             Record.Inode_num = inodeblock;
             Record.Size = size;
             Record.Type = 20;
-
             RewriteCatRecord(Record.Inode_num, Record);
             //AddCatRecord(Record);
             RewriteInode(Record.Inode_num, Inode);
-
             //write file into container
             WriteFileToFS(OpenPath, blocks, data);
             //banning Bitmap bits
@@ -903,14 +964,105 @@ namespace PrivateDocs
             SuperBlock.sb_free_inodes_count = InodeBitmap.FreeBlocks;
 
             int filelength = GetSB().Length + GetBitmap().Length + GetIBitmap().Length;
-            FileSystemIO.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
-            FileSystemIO.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
             //RewriteInode(Record.Inode_num, Inode);
             FormsVar.BSize = SuperBlock.sb_free_blocks_count;
             //ReadFileFromFSlist("C:\\test\\kk", Record);
             //ReadFileofFS("C:\\test\\kk" + name2, blocks, size);
         }
+
+        public void AddFileUpd(string PathToFile, BackgroundWorker worker, DoWorkEventArgs e)
+        {   //testing
+
+            // FILE NAME
+            worker.ReportProgress(0);
+            string name2 = String.Empty;
+            name2 = Path.GetFileName(PathToFile);
+            Random rnd = new Random();
+            if (ComparewithFilesMEM(name2))
+                name2 = Path.GetFileNameWithoutExtension(PathToFile) + rnd.Next() + Path.GetExtension(PathToFile);
+            byte[] bname = Controller.GetBytes(name2);
+            byte[] name = new byte[118];
+            Buffer.BlockCopy(bname, 0, name, 0, bname.Length);
+            //READ FILE
+            //byte[] data = Encryption.ReadFile(PathToFile, Constants.BLOCK_SIZE);
+            byte[] data = FileSystemIO.ReadFile(PathToFile);
+            //check that file normally writed
+            //Encryption.WriteFile("C:\\test\\" + name2, data, data.Length, 0);
+            var size = data.Length;
+            var SizeinBlocks = (size / Constants.BLOCK_SIZE + (size % Constants.BLOCK_SIZE > 0 ? 1 : 0));
+            worker.ReportProgress(10);
+            //check that we have free space for this file
+            if ((SuperBlock.sb_free_blocks_count < SizeinBlocks) || (SuperBlock.sb_free_inodes_count < 0))
+            {
+                System.Windows.Forms.MessageBox.Show("Не хватает места!");
+                return;
+            }
+
+
+            //start to write file
+            List<int> blocks = new List<int>();//var for  free blocks for file
+            List<int> Iblocks = new List<int>();//var for free inode
+            //selectd blocks for file
+            var inodeblock = InodeBitmap.GetFreeBlock();
+            inode_struct Inode = new inode_struct();
+
+            InodeBitmap.SetBitmapState(inodeblock, true);
+            //blocks = Blocks_Bitmap.FreeBlocksIndex(SizeinBlocks);
+            //blockstest = blocks;
+            //Blocks_Bitmap.SetBitmapState(blocks, true);
+            Inode.Number = inodeblock;
+            Inode.FileSize = size;
+            Inode.FileType = 20;
+            this.Inode = Inode;
+            //До этого момента нужно выделить блоки для записи структур и заблокировать их
+            Inode = AddStructures(SizeinBlocks);
+            worker.ReportProgress(50);
+            blocks = blockstest;
+            cat Record = new cat();
+            Record.Name = name;
+            Record.Inode_num = inodeblock;
+            Record.Size = size;
+            Record.Type = 20;
+            RewriteCatRecord(Record.Inode_num, Record);
+            worker.ReportProgress(60);
+            //AddCatRecord(Record);
+            RewriteInode(Record.Inode_num, Inode);
+            worker.ReportProgress(70);
+            //write file into container
+            WriteFileToFS(OpenPath, blocks, data);
+            worker.ReportProgress(99);
+            //banning Bitmap bits
+
+            //variables for SIB and DIB
+            //TEST
+            //ReadFileofFS("C:\\test\\k" + name2, blocks,size);
+
+            //addresses writed
+            //cat Record = new cat();
+            //Record.Name = name;
+            //Record.Inode_num = inodeblock;
+            //Record.Size = size;
+            //Record.Type = 20;
+            //Inode.FileSize = size;
+            //Inode.FileType = 20;
+            //AddCatRecord(Record);
+            SuperBlock.sb_free_blocks_count = Blocks_Bitmap.FreeBlocks;
+            SuperBlock.sb_free_inodes_count = InodeBitmap.FreeBlocks;
+
+            int filelength = GetSB().Length + GetBitmap().Length + GetIBitmap().Length;
+            Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
+            Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
+            //RewriteInode(Record.Inode_num, Inode);
+            FormsVar.BSize = SuperBlock.sb_free_blocks_count;
+            worker.ReportProgress(100);
+            //ReadFileFromFSlist("C:\\test\\kk", Record);
+            //ReadFileofFS("C:\\test\\kk" + name2, blocks, size);
+        }
+
 
         public inode_struct AddStructures(int SizeinBlocks)
         {
@@ -987,7 +1139,7 @@ namespace PrivateDocs
                     }
                 }
                 offset = 0;
-                FileSystemIO.WriteFile(OpenPath, SIBlockA, Constants.BLOCK_SIZE, SIBlock * Constants.BLOCK_SIZE, FormsVar.Password);//write SIBlockA into container
+                Encryption.WriteFile(OpenPath, SIBlockA, Constants.BLOCK_SIZE, SIBlock * Constants.BLOCK_SIZE, FormsVar.Password);//write SIBlockA into container
                 Inode.BlockPointer[12] = (int)SIBlock;
             }
             //starting write double indirect block!!!!!!!
@@ -1019,7 +1171,7 @@ namespace PrivateDocs
                     offset += sizeof(int);
                 }
                 offset = 0;
-                FileSystemIO.WriteFile(OpenPath, DIBlockA, Constants.BLOCK_SIZE, DIBlock * Constants.BLOCK_SIZE, FormsVar.Password);//write DIBlockA into container
+                Encryption.WriteFile(OpenPath, DIBlockA, Constants.BLOCK_SIZE, DIBlock * Constants.BLOCK_SIZE, FormsVar.Password);//write DIBlockA into container
                 //write data addresses into SIBlocks
             }
             //записываем адреса информационных блоков в блоки с адресами
@@ -1050,7 +1202,7 @@ namespace PrivateDocs
                                 else break;
                                 }
                             offset = 0;
-                            FileSystemIO.WriteFile(OpenPath, tempres, Constants.BLOCK_SIZE, DIBlockS[j] * Constants.BLOCK_SIZE, FormsVar.Password);//write block with blocks[] adresses into container
+                            Encryption.WriteFile(OpenPath, tempres, Constants.BLOCK_SIZE, DIBlockS[j] * Constants.BLOCK_SIZE, FormsVar.Password);//write block with blocks[] adresses into container
                         }
                     }
                 }
@@ -1059,7 +1211,7 @@ namespace PrivateDocs
             return Inode;
         }
         #region Ускоренные варианты работы(за счет ОЗУ)
-        public List<string> ReadFilesMEM()
+        public List<string> ReadFilesMEM(BackgroundWorker worker, DoWorkEventArgs e)
         {
             List<string> names = new List<string>();
             List<cat> catalog = new List<cat>();
@@ -1069,22 +1221,26 @@ namespace PrivateDocs
                 max = InodeBitmap.TotalBlocks;
             else
                 max = 32768;
+            worker.ReportProgress(10);
+            int jj = 0;
+            var kk = 0.0;
             byte[] bigdata = new byte[4194304];
-            bigdata = FileSystemIO.ReadFile(OpenPath, 128, count * Constants.BLOCK_SIZE, bigdata.Length, FormsVar.Password);
+            bigdata = Encryption.ReadFile(OpenPath, 128, count * Constants.BLOCK_SIZE, bigdata.Length, FormsVar.Password);
             byte[] bcat = new byte[Constants.CAT_SIZE];
             for (var i = 0; i < max; i++)
             {
                 int block = i * Constants.CAT_SIZE + count * Constants.BLOCK_SIZE;
                 //Inode = GetInode(i);
                 Buffer.BlockCopy(bigdata, i * Constants.CAT_SIZE, bcat, 0, Constants.CAT_SIZE);
-                //byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
+                //byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
                 cat temp = new cat();
                 temp.Set(bcat);
                 if (temp.Type == 20)
                 {
                     catalog.Add(temp);
-                }  
+                }
             }
+            worker.ReportProgress(100);
             if (catalog.Count == 0)
             {
                 names.Add("Контейнер пуст");
@@ -1112,14 +1268,14 @@ namespace PrivateDocs
             else
                 max = 32768;
             byte[] bigdata = new byte[4194304];
-            bigdata = FileSystemIO.ReadFile(OpenPath, bigdata.Length, count * Constants.BLOCK_SIZE, bigdata.Length, FormsVar.Password);
+            bigdata = Encryption.ReadFile(OpenPath, bigdata.Length, count * Constants.BLOCK_SIZE, bigdata.Length, FormsVar.Password);
             byte[] bcat = new byte[Constants.CAT_SIZE];
             for (var i = 0; i < max; i++)
             {
                 int block = i * Constants.CAT_SIZE + count * Constants.BLOCK_SIZE;
                 //Inode = GetInode(i);
                 Buffer.BlockCopy(bigdata, i * Constants.CAT_SIZE, bcat, 0, Constants.CAT_SIZE);
-                //byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
+                //byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
                 cat temp = new cat();
                 temp.Set(bcat);
                 if (temp.Type == 20)
@@ -1141,6 +1297,7 @@ namespace PrivateDocs
                 }
             }
             return null;
+            
         }
 
         public bool ComparewithFilesMEM(string CompareName)
@@ -1154,14 +1311,14 @@ namespace PrivateDocs
             else
                 max = 32768;
             byte[] bigdata = new byte[4194304];
-            bigdata = FileSystemIO.ReadFile(OpenPath, bigdata.Length, count * Constants.BLOCK_SIZE, bigdata.Length, FormsVar.Password);
+            bigdata = Encryption.ReadFile(OpenPath, bigdata.Length, count * Constants.BLOCK_SIZE, bigdata.Length, FormsVar.Password);
             byte[] bcat = new byte[Constants.CAT_SIZE];
             for (var i = 0; i < max; i++)
             {
                 int block = i * Constants.CAT_SIZE + count * Constants.BLOCK_SIZE;
                 //Inode = GetInode(i);
                     Buffer.BlockCopy(bigdata, i * Constants.CAT_SIZE, bcat, 0, Constants.CAT_SIZE);
-                    //byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
+                    //byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE);
                     cat temp = new cat();
                     temp.Set(bcat);
                     if (temp.Type == 20)
@@ -1207,7 +1364,7 @@ namespace PrivateDocs
                 Inode = GetInode(i);
                 if (Inode.FileType==20)
                 {
-                    byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE, FormsVar.Password);
+                    byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE, FormsVar.Password);
                     cat temp = new cat();
                     temp.Set(data);
                     catalog.Add(temp);
@@ -1248,7 +1405,7 @@ namespace PrivateDocs
                 Inode = GetInode(i);
                 if (Inode.FileType == 20)
                 {
-                    byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE, FormsVar.Password);
+                    byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE, FormsVar.Password);
                     cat temp = new cat();
                     temp.Set(data);
                     catalog.Add(temp);
@@ -1287,7 +1444,7 @@ namespace PrivateDocs
                 Inode = GetInode(i);
                 if (Inode.FileType == 20)
                 {
-                    byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE, FormsVar.Password);
+                    byte[] data = Encryption.ReadFile(OpenPath, Constants.CAT_SIZE, block, Constants.CAT_SIZE, FormsVar.Password);
                     cat temp = new cat();
                     temp.Set(data);
                     catalog.Add(temp);
@@ -1333,7 +1490,7 @@ namespace PrivateDocs
             {
                 Buffer.BlockCopy(data, offset, part, 0, part.Length);
                 offset += part.Length;
-                FileSystemIO.WriteFile(Path, part, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, FormsVar.Password);
+                Encryption.WriteFile(Path, part, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, FormsVar.Password);
             }
             if (data.Length % Constants.BLOCK_SIZE != 0)
             {
@@ -1341,8 +1498,8 @@ namespace PrivateDocs
                 Buffer.BlockCopy(data, offset, temp, 0, temp.Length);
                 for (var i = 0; i < temp.Length; i++)
                     extend[i] = temp[i];
-                //FileSystemIO.WriteFile(Path, extend, Constants.BLOCK_SIZE, list[size] * Constants.BLOCK_SIZE);
-                FileSystemIO.WriteFile(Path, temp, temp.Length, list[size] * Constants.BLOCK_SIZE, FormsVar.Password);
+                //Encryption.WriteFile(Path, extend, Constants.BLOCK_SIZE, list[size] * Constants.BLOCK_SIZE);
+                Encryption.WriteFile(Path, temp, temp.Length, list[size] * Constants.BLOCK_SIZE, FormsVar.Password);
             }     
         }
 
@@ -1361,8 +1518,8 @@ namespace PrivateDocs
             for (var i = 0; i < size; i++)
             {
                 byte[] data = new byte[Constants.BLOCK_SIZE];
-                data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
-                FileSystemIO.WriteFile(Path, data, Constants.BLOCK_SIZE, offset, FormsVar.Password);
+                data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                Encryption.WriteFile(Path, data, Constants.BLOCK_SIZE, offset, FormsVar.Password);
                 offset += data.Length;
             }
             if (check)
@@ -1370,8 +1527,8 @@ namespace PrivateDocs
                 offset = Constants.BLOCK_SIZE * (list.Count - 1);
                 byte[] lastdata = new byte[filesize % Constants.BLOCK_SIZE];
                 int lastsize = lastdata.Length;
-                lastdata = FileSystemIO.ReadFile(OpenPath, lastsize, list[list.Count - 1] * Constants.BLOCK_SIZE, lastsize, FormsVar.Password);
-                FileSystemIO.WriteFile(Path, lastdata, lastsize, offset, FormsVar.Password);
+                lastdata = Encryption.ReadFile(OpenPath, lastsize, list[list.Count - 1] * Constants.BLOCK_SIZE, lastsize, FormsVar.Password);
+                Encryption.WriteFile(Path, lastdata, lastsize, offset, FormsVar.Password);
             }
             
         }
@@ -1396,9 +1553,9 @@ namespace PrivateDocs
             for (var i = 0; i < size; i++)
             {
                 byte[] data = new byte[Constants.BLOCK_SIZE];
-                data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+                data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, list[i] * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
                 Buffer.BlockCopy(data, 0, bigdata, offset, data.Length);
-                //FileSystemIO.WriteFile(Path, data, Constants.BLOCK_SIZE, offset);
+                //Encryption.WriteFile(Path, data, Constants.BLOCK_SIZE, offset);
                 offset += data.Length;
             }
             FileSystemIO.WriteFile(Path, bigdata, bigdata.Length, 0, FormsVar.Password);
@@ -1408,7 +1565,7 @@ namespace PrivateDocs
                 offset = Constants.BLOCK_SIZE * (list.Count - 1);
                 byte[] lastdata = new byte[filesize % Constants.BLOCK_SIZE];
                 int lastsize = lastdata.Length;
-                lastdata = FileSystemIO.ReadFile(OpenPath, lastsize, list[list.Count - 1] * Constants.BLOCK_SIZE, lastsize, FormsVar.Password);
+                lastdata = Encryption.ReadFile(OpenPath, lastsize, list[list.Count - 1] * Constants.BLOCK_SIZE, lastsize, FormsVar.Password);
                 FileSystemIO.WriteFile(Path, lastdata, lastsize, offset, FormsVar.Password);
             }
 
@@ -1418,7 +1575,7 @@ namespace PrivateDocs
         {
             List<int> result = new List<int>();
             int offset = 0;
-            byte[] data = FileSystemIO.ReadFile(OpenPath, Constants.BLOCK_SIZE, block * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
+            byte[] data = Encryption.ReadFile(OpenPath, Constants.BLOCK_SIZE, block * Constants.BLOCK_SIZE, Constants.BLOCK_SIZE, FormsVar.Password);
             for (var i = 0; i < Marshal.SizeOf(data) / sizeof(int); i++)
             {
                 byte[] part = new byte[Constants.CAT_SIZE];
