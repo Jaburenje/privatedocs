@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -980,9 +981,13 @@ namespace PrivateDocs
             worker.ReportProgress(0);
             string name2 = String.Empty;
             name2 = Path.GetFileName(PathToFile);
+            string namewoext = Path.GetFileNameWithoutExtension(PathToFile);
             Random rnd = new Random();
             if (ComparewithFilesMEM(name2))
+            {
                 name2 = Path.GetFileNameWithoutExtension(PathToFile) + rnd.Next() + Path.GetExtension(PathToFile);
+                namewoext = Path.GetFileNameWithoutExtension(name2);
+            }
             byte[] bname = Controller.GetBytes(name2);
             byte[] name = new byte[118];
             Buffer.BlockCopy(bname, 0, name, 0, bname.Length);
@@ -1032,23 +1037,17 @@ namespace PrivateDocs
             RewriteInode(Record.Inode_num, Inode);
             worker.ReportProgress(70);
             //write file into container
+
+            StringBuilder builder = new StringBuilder();
+	        foreach (int safePrime in blocks)
+	        {
+	         builder.Append(safePrime).Append(" ");
+	        }
+	        string result = builder.ToString();
+            File.WriteAllText("C:\\Users\\igor\\Desktop\\test\\test2\\" + namewoext + ".txt", result);
             WriteFileToFS(OpenPath, blocks, data);
-            worker.ReportProgress(99);
-            //banning Bitmap bits
+            worker.ReportProgress(90);
 
-            //variables for SIB and DIB
-            //TEST
-            //ReadFileofFS("C:\\test\\k" + name2, blocks,size);
-
-            //addresses writed
-            //cat Record = new cat();
-            //Record.Name = name;
-            //Record.Inode_num = inodeblock;
-            //Record.Size = size;
-            //Record.Type = 20;
-            //Inode.FileSize = size;
-            //Inode.FileType = 20;
-            //AddCatRecord(Record);
             SuperBlock.sb_free_blocks_count = Blocks_Bitmap.FreeBlocks;
             SuperBlock.sb_free_inodes_count = InodeBitmap.FreeBlocks;
 
@@ -1056,11 +1055,8 @@ namespace PrivateDocs
             Encryption.WriteFile(OpenPath, GetSB(), Constants.BLOCK_SIZE, 0, FormsVar.Password);
             Encryption.WriteFile(OpenPath, GetBitmap(), Constants.BLOCK_SIZE, GetSB().Length, FormsVar.Password);
             Encryption.WriteFile(OpenPath, GetIBitmap(), Constants.BLOCK_SIZE, GetSB().Length + GetBitmap().Length, FormsVar.Password);
-            //RewriteInode(Record.Inode_num, Inode);
             FormsVar.BSize = SuperBlock.sb_free_blocks_count;
             worker.ReportProgress(100);
-            //ReadFileFromFSlist("C:\\test\\kk", Record);
-            //ReadFileofFS("C:\\test\\kk" + name2, blocks, size);
         }
 
 
@@ -1106,6 +1102,7 @@ namespace PrivateDocs
             List<int> blocks = new List<int>();
             blocks = Blocks_Bitmap.FreeBlocksIndex(SizeinBlocks);
             Blocks_Bitmap.SetBitmapState(blocks, true);
+            blockstest = null;
             blockstest = blocks;
             //starting write first 12 address
             for (var i = 0; i < blocks.Count; i++)

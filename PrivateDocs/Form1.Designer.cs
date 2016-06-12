@@ -42,12 +42,12 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label3 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.button7 = new System.Windows.Forms.Button();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
             this.button6 = new System.Windows.Forms.Button();
             this.backgroundWorker1 = new System.ComponentModel.BackgroundWorker();
             this.label4 = new System.Windows.Forms.Label();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
-            this.button7 = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -166,6 +166,16 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Файл";
             // 
+            // button7
+            // 
+            this.button7.Location = new System.Drawing.Point(143, 19);
+            this.button7.Name = "button7";
+            this.button7.Size = new System.Drawing.Size(61, 40);
+            this.button7.TabIndex = 17;
+            this.button7.Text = "Закрыть";
+            this.button7.UseVisualStyleBackColor = true;
+            this.button7.Click += new System.EventHandler(this.button7_Click);
+            // 
             // groupBox3
             // 
             this.groupBox3.Controls.Add(this.button6);
@@ -204,15 +214,6 @@
             this.progressBar1.Name = "progressBar1";
             this.progressBar1.Size = new System.Drawing.Size(261, 20);
             this.progressBar1.TabIndex = 16;
-            // 
-            // button7
-            // 
-            this.button7.Location = new System.Drawing.Point(143, 19);
-            this.button7.Name = "button7";
-            this.button7.Size = new System.Drawing.Size(61, 40);
-            this.button7.TabIndex = 17;
-            this.button7.Text = "Закрыть";
-            this.button7.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 

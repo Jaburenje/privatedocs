@@ -303,6 +303,7 @@ namespace PrivateDocs
         private void button3_Click(object sender, EventArgs e)
         {
             AllLocked();
+            test.ReadContainer(FormsVar.Path);
             //Test test = new Test(1, textBox2.Text);
             if (FormsVar.Password!=null)
             {
@@ -565,6 +566,12 @@ namespace PrivateDocs
                 }
             Opened();
             GC.Collect();
+        }
+
+        private void button7_Click(object sender, EventArgs e)
+        {
+            Closed();
+            FormsVar.Password = null;
         }
 
     }

@@ -233,19 +233,16 @@ namespace PrivateDocs
             FreeBlocks += (value == true) ? -1 : 1;
         }
 
-        public void SetBitmapState(List<int> list,bool value)
+        public void SetBitmapState(List<int> list, bool value)
         {
             int ByteIndex = 0;
             int BitInByteIndex = 0;
-            Parallel.ForEach(Partitioner.Create(0, list.Count), (range, state) =>
-                {
-                    for (var i = range.Item1; i < range.Item2; i++)
-                    {
-                        ByteIndex = list[i] / Constants.BIT_IN_BYTE_COUNT;
-                        BitInByteIndex = list[i] % Constants.BIT_IN_BYTE_COUNT;
-                        SetBit(ref indexMap[ByteIndex], BitInByteIndex, value);
-                    }
-                });
+            for (int rr = 0, rrLen = list.Count; rr < rrLen; rr++)
+            {
+                ByteIndex = list[rr] / Constants.BIT_IN_BYTE_COUNT;
+                BitInByteIndex = list[rr] % Constants.BIT_IN_BYTE_COUNT;
+                SetBit(ref indexMap[ByteIndex], BitInByteIndex, value);
+            }
             FreeBlocks += (value == true) ? -list.Count : list.Count;
         }
 
